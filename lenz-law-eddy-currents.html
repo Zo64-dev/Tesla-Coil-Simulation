@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Lenz's Law &amp; Eddy Currents — Spark Lab</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html { -webkit-tap-highlight-color: transparent; }
+  #labCanvas { touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  input[type="range"] { height: 6px; cursor: pointer; }
+  input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; }
+  @media (prefers-reduced-motion: reduce) { .transition-all { transition: none !important; } }
+</style>
+</head>
+<body class="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
+
+<!-- ===== Header ===== -->
+<header class="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sticky top-0 z-40">
+  <div class="flex items-center gap-3 min-w-0">
+    <a href="index.html" class="shrink-0 text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-700 rounded-md px-2 py-1.5 transition-colors" title="Back to Spark Lab">←</a>
+    <div class="w-9 h-9 shrink-0 rounded-lg bg-orange-600/20 border border-orange-500/40 flex items-center justify-center text-lg">🧲</div>
+    <div class="min-w-0">
+      <h1 class="text-sm sm:text-base font-semibold tracking-wide truncate">Lenz's Law &amp; Eddy Currents</h1>
+      <p class="text-[11px] text-zinc-400 hidden sm:block">The magnet that falls in slow motion — electromagnetic braking live</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-2 shrink-0">
+    <button id="helpBtn" class="flex items-center gap-1.5 text-xs px-3 py-2 rounded-md border border-zinc-700 bg-zinc-800/70 hover:bg-zinc-700/70 text-zinc-300 transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span class="hidden sm:inline">How to use</span><span class="sm:hidden">Help</span>
+    </button>
+    <button id="dropBtn" class="flex items-center gap-1.5 text-xs px-3 py-2 rounded-md border transition-colors border-orange-500/50 bg-orange-500/15 text-orange-300 font-medium">
+      <span id="dropLabel">⬇ Drop Magnet</span>
+    </button>
+  </div>
+</header>
+
+<!-- ===== Main layout ===== -->
+<main class="p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-7xl mx-auto">
+
+  <!-- ---- Visualizer (first on mobile) ---- -->
+  <section class="lg:col-span-6 lg:order-2">
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden relative">
+      <canvas id="labCanvas" width="800" height="520" class="w-full h-auto block"
+        aria-label="Lenz's law simulation. A magnet falls through a conductive tube, braked by eddy currents."></canvas>
+      <div id="stateBanner" class="absolute top-3 left-3 px-2.5 py-1 rounded-md border text-[11px] font-semibold tracking-widest uppercase bg-zinc-500/15 text-zinc-300 border-zinc-500/40">Ready to Drop</div>
+      <div class="absolute top-3 right-3 px-2.5 py-1 rounded-md border border-zinc-700 bg-zinc-900/80 text-[11px] text-zinc-300">⏱ <span id="clock" class="font-mono">0.00</span> s</div>
+    </div>
+    <p class="text-[11px] text-zinc-500 mt-2">🧲 Tap the canvas (or the Drop button) to release the magnet. Turn on the race to see freefall side by side.</p>
+  </section>
+
+  <!-- ---- Control panel ---- -->
+  <section class="lg:col-span-3 lg:order-1 space-y-3">
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">🧪 Tube Material</h2>
+      <div id="matGroup" class="grid grid-cols-1 gap-1.5" role="radiogroup" aria-label="Tube material"></div>
+      <p class="text-[11px] text-zinc-500 mt-2 leading-relaxed">Conductivity shown at right (copper = 100). The slotted tube is the plot twist — try it last.</p>
+    </div>
+
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">⚙ Control Dashboard</h2>
+
+      <div class="mb-4">
+        <span class="text-xs text-zinc-300 block mb-1.5">🧲 Magnet Grade</span>
+        <div class="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Magnet grade">
+          <button id="magCeramic" class="px-2 py-2 rounded-md border text-xs transition-colors border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/70 text-zinc-300">Ceramic<span class="block text-[10px] text-zinc-500">≈ 0.2 T</span></button>
+          <button id="magN52" class="px-2 py-2 rounded-md border text-xs transition-colors border-orange-500/60 bg-orange-500/15 text-orange-200">N52 Neodymium<span class="block text-[10px] text-orange-300/70">≈ 0.65 T</span></button>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <label for="wall" class="text-xs text-zinc-300">📏 Tube Wall Thickness</label>
+          <span class="text-xs font-mono text-zinc-100 bg-zinc-800 px-1.5 py-0.5 rounded"><span id="wallVal">3.0</span> mm</span>
+        </div>
+        <input id="wall" type="range" min="1" max="6" step="0.5" value="3" class="w-full accent-orange-500" />
+        <p class="text-[10.5px] text-zinc-500 mt-1">Thicker walls = more metal for currents to swirl in</p>
+      </div>
+
+      <label class="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+        <input id="raceToggle" type="checkbox" checked class="accent-sky-500 w-4 h-4" />
+        <span><span class="font-medium">Race Mode</span> <span class="text-zinc-500">— identical magnet in a glass tube</span></span>
+      </label>
+    </div>
+
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">🧪 Experiment Ideas</h2>
+      <ul class="text-[11.5px] text-zinc-400 space-y-2 leading-relaxed">
+        <li>• Race copper vs glass with the N52 magnet. Time the difference.</li>
+        <li>• Swap to the ceramic magnet — braking scales with B², so weaker field = <em>much</em> weaker brake.</li>
+        <li>• Try the slotted copper tube. Same metal — why doesn't it brake?</li>
+        <li>• Watch the heat meter: where does the falling magnet's energy go?</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ---- Metrics + lab notes ---- -->
+  <section class="lg:col-span-3 lg:order-3 space-y-3">
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">📡 Live Readouts</h2>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">System State</span>
+          <span id="roState" class="text-xs font-mono font-semibold text-zinc-300">Ready to Drop</span>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Fall Velocity</span>
+          <span id="roVel" class="text-xs font-mono font-semibold text-zinc-100">0.00 m/s</span>
+        </div>
+        <div class="mt-1 h-1 rounded-full bg-zinc-800 overflow-hidden">
+          <div id="barVel" class="h-full rounded-full transition-all duration-150" style="width:0%; background:#fb923c; box-shadow:0 0 6px #fb923c;"></div>
+        </div>
+        <p class="text-[10px] text-zinc-600 mt-0.5">Terminal velocity: <span id="roTerm">—</span></p>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Gravity Pulling Down</span>
+          <span id="roGrav" class="text-xs font-mono font-semibold text-emerald-300">0.49 N</span>
+        </div>
+        <div class="flex items-center justify-between gap-2 mt-1.5">
+          <span class="text-[11px] text-zinc-500">Eddy Brake Pushing Up</span>
+          <span id="roBrake" class="text-xs font-mono font-semibold text-orange-300">0.00 N</span>
+        </div>
+        <div class="mt-1 h-1 rounded-full bg-zinc-800 overflow-hidden">
+          <div id="barBrake" class="h-full rounded-full transition-all duration-150" style="width:0%; background:#f59e0b; box-shadow:0 0 6px #f59e0b;"></div>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">🔥 Heat Generated in Tube</span>
+          <span id="roHeat" class="text-xs font-mono font-semibold text-red-300">0.00 J</span>
+        </div>
+        <p class="text-[10px] text-zinc-600 mt-0.5">Lost motion becomes warmth — energy is conserved</p>
+      </div>
+
+      <div class="mb-3 pt-2 border-t border-zinc-800">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Fall Time — <span id="matName">Copper</span></span>
+          <span id="roTimeMain" class="text-xs font-mono font-semibold text-orange-300">—</span>
+        </div>
+        <div class="flex items-center justify-between gap-2 mt-1">
+          <span class="text-[11px] text-zinc-500">Fall Time — Glass (freefall)</span>
+          <span id="roTimeGlass" class="text-xs font-mono font-semibold text-sky-300">—</span>
+        </div>
+      </div>
+
+      <div>
+        <span class="text-[11px] text-zinc-500 block mb-1">Velocity vs Time</span>
+        <canvas id="sparkline" width="240" height="56" class="w-full h-14 rounded-md border border-zinc-800 bg-zinc-950"></canvas>
+        <p class="text-[10px] text-zinc-600 mt-1">Freefall climbs forever; eddy braking flattens into terminal velocity.</p>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">📓 Lab Notes</h2>
+      <ul class="text-[11.5px] text-zinc-400 space-y-2 leading-relaxed">
+        <li><span class="text-zinc-200 font-medium">Lenz's law:</span> induced currents always flow in the direction that <em>opposes</em> the change creating them. The tube fights the magnet's arrival below it and mourns its departure above — both effects push upward.</li>
+        <li><span class="text-zinc-200 font-medium">No contact, real force:</span> the magnet never touches the tube. The braking is pure field-on-field interaction — the same physics behind maglev train brakes and induction cooktops.</li>
+        <li><span class="text-zinc-200 font-medium">The slotted tube secret:</span> eddy currents must flow in closed rings around the tube. Cut one slot down its length and the rings can't complete — same copper, no brake. Geometry is everything.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<!-- ===== Help overlay ===== -->
+<div id="helpOverlay" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="How to use this simulation">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+    <div class="flex items-start justify-between mb-4">
+      <h2 class="text-base font-semibold flex items-center gap-2">🧲 How to Use This Lab</h2>
+      <button id="helpClose" class="p-2 rounded-md hover:bg-zinc-800 text-zinc-400" aria-label="Close help">✕</button>
+    </div>
+    <div class="space-y-4 text-sm text-zinc-300 leading-relaxed">
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">Gravity-defying — almost</h3>
+        <p class="text-zinc-400">Drop a strong magnet down a copper pipe and it doesn't fall. It <em>descends</em> — drifting down in eerie slow motion as if the air were syrup. Nothing touches it. This lab lets you race that magnet against an identical one in a glass tube, and see exactly why one wins by seconds.</p>
+      </div>
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">1 · Drop and watch the rings</h3>
+        <p class="text-zinc-400">As the magnet moves, its field sweeps through the metal, and the metal answers: swirling loops of current — <span class="text-amber-300">eddy currents</span> — spin up in the tube walls. By Lenz's law they always oppose the change: the ring below the magnet repels it, the ring above attracts it back. Both push up. The glowing loops in the tube show them live, brightening with speed.</p>
+      </div>
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">2 · Change the material and the magnet</h3>
+        <p class="text-zinc-400">Braking strength scales with the tube's <span class="text-orange-300">conductivity</span> and with the magnet's field <em>squared</em>. Copper brakes hard, aluminum moderately, plastic not at all. Swap the N52 neodymium for a ceramic magnet and the brake nearly vanishes — same tube, ten times weaker grip.</p>
+      </div>
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">3 · Follow the energy</h3>
+        <p class="text-zinc-400">Here's the profound part: the magnet loses kinetic energy, but energy is never destroyed. Watch the <span class="text-red-300">heat meter</span> — every joule of "missing" motion reappears as warmth in the tube walls, dissipated by those swirling currents. The slow fall isn't magic; it's the universe keeping its books balanced.</p>
+      </div>
+    </div>
+    <button id="helpStart" class="mt-5 w-full py-2.5 rounded-md bg-orange-600 hover:bg-orange-500 text-sm font-medium transition-colors">Drop the magnet</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   LENZ'S LAW & EDDY CURRENTS — plain JS engine
+   Velocity-proportional magnetic braking: F = −kv, k ∝ σ·B²·t
+   ============================================================ */
+
+const W = 800, H = 520;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+// ---- Materials: relative conductivity (copper = 1) ----
+const MATERIALS = {
+  copper:   { label: "Copper",           sigma: 1.00, cond: 100, tube: "#b45309", tubeHi: "#f59e0b", note: "high braking" },
+  aluminum: { label: "Aluminum",         sigma: 0.59, cond: 59,  tube: "#64748b", tubeHi: "#cbd5e1", note: "medium braking" },
+  glass:    { label: "Plastic / Glass",  sigma: 0.00, cond: 0,   tube: "#334155", tubeHi: "#7dd3fc", note: "zero braking — freefall" },
+  slotted:  { label: "Copper (slotted)", sigma: 0.04, cond: 100, tube: "#b45309", tubeHi: "#f59e0b", note: "the plot twist", slotted: true },
+};
+const MAGNETS = { ceramic: { B: 0.2, label: "Ceramic" }, n52: { B: 0.65, label: "N52 Neodymium" } };
+
+// ---- Physics constants ----
+const G = 9.81, MASS = 0.05;          // kg
+const TUBE_M = 1.2;                    // tube length in meters
+const TUBE_TOP = 88, TUBE_BOT = 448;   // px
+const PX_PER_M = (TUBE_BOT - TUBE_TOP) / TUBE_M;
+const BRAKE_C = 9.7;                   // calibration: N52+copper ⇒ vt ≈ 0.12 m/s
+
+// ---- State ----
+const S = {
+  material: "copper",
+  magnet: "n52",
+  wallMm: 3,
+  race: true,
+  dropped: false,
+  y: 0, v: 0,          // main magnet: position (m from top), velocity (m/s)
+  gy: 0, gv: 0,        // glass-race magnet
+  t: 0, heat: 0,
+  tMain: null, tGlass: null,
+};
+
+function brakeK() {
+  const m = MATERIALS[S.material], mag = MAGNETS[S.magnet];
+  return BRAKE_C * m.sigma * mag.B * mag.B * (S.wallMm / 3);
+}
+const termV = () => { const k = brakeK(); return k > 0.001 ? MASS * G / k : Infinity; };
+
+function resetDrop() {
+  S.dropped = false;
+  S.y = 0; S.v = 0; S.gy = 0; S.gv = 0;
+  S.t = 0; S.heat = 0; S.tMain = null; S.tGlass = null;
+  velHistory = new Array(240).fill(null);
+  $("dropLabel").textContent = "⬇ Drop Magnet";
+}
+function drop() {
+  if (S.dropped && (S.tMain === null || (S.race && S.tGlass === null))) return; // mid-fall
+  if (S.dropped) { resetDrop(); return; }
+  S.dropped = true;
+  $("dropLabel").textContent = "↺ Reset";
+}
+
+// ---- Canvas ----
+const canvas = document.getElementById("labCanvas");
+const ctx = canvas.getContext("2d");
+const slCtx = document.getElementById("sparkline").getContext("2d");
+const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let velHistory = new Array(240).fill(null), histAcc = 0;
+
+let lastT = 0, lastUi = 0;
+function frame(now) {
+  const dt = Math.min((now - lastT) / 1000, 0.04) || 0.016;
+  lastT = now;
+
+  if (S.dropped) {
+    S.t += dt;
+    // main magnet: gravity vs eddy brake (F = −kv)
+    if (S.tMain === null) {
+      const k = brakeK();
+      const a = G - (k / MASS) * S.v;
+      S.v += a * dt;
+      const fBrake = k * S.v;
+      S.heat += fBrake * S.v * dt;      // P = F·v → all braking becomes heat
+      S.y += S.v * dt;
+      if (S.y >= TUBE_M) { S.y = TUBE_M; S.tMain = S.t; }
+    }
+    // glass-race magnet: pure freefall
+    if (S.race && S.tGlass === null) {
+      S.gv += G * dt;
+      S.gy += S.gv * dt;
+      if (S.gy >= TUBE_M) { S.gy = TUBE_M; S.tGlass = S.t; }
+    }
+    histAcc += dt;
+    if (histAcc > 0.04) { histAcc = 0; velHistory.push(S.tMain === null ? S.v : null); velHistory.shift(); }
+  }
+
+  draw(now);
+  if (now - lastUi > 100) { lastUi = now; updateReadouts(); }
+  requestAnimationFrame(frame);
+}
+
+// ---- Drawing ----
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${clamp(a,0,1)})`;
+}
+
+function draw(now) {
+  ctx.clearRect(0, 0, W, H);
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#09090f"); bg.addColorStop(1, "#101018");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "rgba(120,130,180,0.05)"; ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y <= H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  // ground
+  ctx.fillStyle = "#1c1c26"; ctx.fillRect(0, 470, W, H - 470);
+
+  const mainX = S.race ? 300 : 400;
+  drawTube(mainX, MATERIALS[S.material], S.y, S.v, true, now);
+  if (S.race) {
+    drawTube(520, MATERIALS.glass, S.gy, S.gv, false, now);
+    ctx.fillStyle = "rgba(226,232,240,0.55)";
+    ctx.font = "10px ui-monospace, monospace"; ctx.textAlign = "center";
+    ctx.fillText(MATERIALS[S.material].label.toUpperCase(), mainX, TUBE_BOT + 34);
+    ctx.fillText("GLASS (CONTROL)", 520, TUBE_BOT + 34);
+    if (S.tMain !== null) ctx.fillText("⏱ " + S.tMain.toFixed(2) + " s", mainX, TUBE_BOT + 50);
+    if (S.tGlass !== null) ctx.fillText("⏱ " + S.tGlass.toFixed(2) + " s", 520, TUBE_BOT + 50);
+  } else {
+    ctx.fillStyle = "rgba(226,232,240,0.55)";
+    ctx.font = "10px ui-monospace, monospace"; ctx.textAlign = "center";
+    ctx.fillText(MATERIALS[S.material].label.toUpperCase(), mainX, TUBE_BOT + 34);
+  }
+}
+
+function drawTube(cx, mat, yM, v, isMain, now) {
+  const tw = 64;                       // tube outer width
+  const yPx = TUBE_TOP + yM * PX_PER_M;
+  const heatGlow = isMain ? clamp(S.heat / 0.6, 0, 1) : 0;
+
+  // release stand
+  ctx.fillStyle = "#27272a";
+  ctx.fillRect(cx - 46, TUBE_TOP - 26, 92, 10);
+  ctx.strokeStyle = "#3f3f46"; ctx.strokeRect(cx - 46, TUBE_TOP - 26, 92, 10);
+
+  // tube walls (two vertical strips so we can see inside)
+  const isGlass = mat.sigma === 0 && !mat.slotted;
+  const wallW = isGlass ? 5 : 4 + S.wallMm * 1.2;
+  [-1, 1].forEach(side => {
+    const x = cx + side * (tw / 2) - (side > 0 ? wallW : 0);
+    if (isGlass) {
+      ctx.fillStyle = "rgba(125,211,252,0.13)";
+      ctx.fillRect(x, TUBE_TOP, wallW, TUBE_BOT - TUBE_TOP);
+      ctx.strokeStyle = "rgba(125,211,252,0.35)";
+      ctx.strokeRect(x, TUBE_TOP, wallW, TUBE_BOT - TUBE_TOP);
+    } else {
+      const g = ctx.createLinearGradient(x, 0, x + wallW, 0);
+      g.addColorStop(0, hexA(mat.tube, 0.9)); g.addColorStop(0.5, hexA(mat.tubeHi, 0.55)); g.addColorStop(1, hexA(mat.tube, 0.9));
+      ctx.fillStyle = g;
+      ctx.fillRect(x, TUBE_TOP, wallW, TUBE_BOT - TUBE_TOP);
+      // heat tint rises as energy dissipates
+      if (heatGlow > 0.02) {
+        ctx.fillStyle = `rgba(248,113,113,${0.25 * heatGlow})`;
+        ctx.fillRect(x, TUBE_TOP, wallW, TUBE_BOT - TUBE_TOP);
+      }
+      // slot cut down the length
+      if (mat.slotted && side === 1) {
+        ctx.fillStyle = "#0a0a12";
+        ctx.fillRect(x + wallW / 2 - 1.5, TUBE_TOP, 3, TUBE_BOT - TUBE_TOP);
+      }
+    }
+  });
+
+  // catch pad
+  ctx.fillStyle = "#3f3f46";
+  ctx.fillRect(cx - tw / 2 - 6, TUBE_BOT + 2, tw + 12, 8);
+
+  // ---- eddy current rings (Lenz's law made visible) ----
+  const k = isMain ? brakeK() : 0;
+  const ringPower = clamp((k * v) / (MASS * G), 0, 1.4);   // brake force vs weight
+  if (ringPower > 0.02 && yM < TUBE_M) {
+    const flick = reducedMotion ? 0.9 : 0.75 + Math.random() * 0.25;
+    [[-24, 1], [24, -1]].forEach(([dy, dir]) => {          // ring below + ring above
+      const ry = yPx + dy;
+      if (ry < TUBE_TOP + 8 || ry > TUBE_BOT - 8) return;
+      ctx.strokeStyle = hexA("#fbbf24", clamp(ringPower, 0, 1) * 0.85 * flick);
+      ctx.shadowColor = "#f59e0b"; ctx.shadowBlur = 12 * ringPower;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.ellipse(cx, ry, tw / 2 + 3, 9, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.shadowBlur = 0;
+      // rotation arrows (opposite directions above vs below)
+      const spin = (now * 0.004 * dir) % (Math.PI * 2);
+      ctx.fillStyle = hexA("#fde68a", clamp(ringPower, 0, 1) * flick);
+      for (let a = 0; a < 2; a++) {
+        const ang = spin + a * Math.PI;
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(ang) * (tw / 2 + 3), ry + Math.sin(ang) * 9, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+  }
+
+  // ---- the magnet ----
+  if (yM <= TUBE_M) {
+    const mw = 36, mh = 20;
+    const mag = MAGNETS[S.magnet];
+    const fieldR = 16 + mag.B * 36;
+    // field halo
+    ctx.strokeStyle = `rgba(148,163,184,${isMain ? 0.22 : 0.15})`;
+    ctx.lineWidth = 1;
+    [0.55, 0.8, 1].forEach(s => {
+      ctx.beginPath(); ctx.ellipse(cx, yPx, fieldR * s, fieldR * 0.62 * s, 0, 0, Math.PI * 2); ctx.stroke();
+    });
+    // N (red) top / S (blue) bottom
+    ctx.shadowColor = "#f87171"; ctx.shadowBlur = 6;
+    ctx.fillStyle = "#dc2626";
+    ctx.fillRect(cx - mw / 2, yPx - mh / 2, mw, mh / 2);
+    ctx.shadowColor = "#60a5fa";
+    ctx.fillStyle = "#2563eb";
+    ctx.fillRect(cx - mw / 2, yPx, mw, mh / 2);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.font = "bold 9px ui-monospace, monospace"; ctx.textAlign = "center";
+    ctx.fillText("N", cx, yPx - 2.5);
+    ctx.fillText("S", cx, yPx + 8);
+
+    // force arrows (main tube only)
+    if (isMain && S.dropped && S.tMain === null) {
+      drawArrow(cx + 52, yPx, cx + 52, yPx + 34, "#34d399", "mg");
+      const bl = clamp(ringPower, 0, 1) * 34;
+      if (bl > 3) drawArrow(cx - 52, yPx, cx - 52, yPx - bl, "#fbbf24", "F_eddy");
+    }
+  }
+}
+
+function drawArrow(x0, y0, x1, y1, color, label) {
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  const a = Math.atan2(y1 - y0, x1 - x0);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - 7 * Math.cos(a - 0.4), y1 - 7 * Math.sin(a - 0.4));
+  ctx.lineTo(x1 - 7 * Math.cos(a + 0.4), y1 - 7 * Math.sin(a + 0.4));
+  ctx.closePath(); ctx.fill();
+  ctx.font = "9px ui-monospace, monospace"; ctx.textAlign = "center";
+  ctx.fillText(label, x1, y1 + (y1 > y0 ? 12 : -6));
+}
+
+// ---- Readouts ----
+const $ = id => document.getElementById(id);
+function updateReadouts() {
+  const k = brakeK();
+  const vt = termV();
+  const fBrake = k * S.v;
+  const falling = S.dropped && S.tMain === null;
+
+  let label, tone;
+  if (!S.dropped)                         { label = "Ready to Drop";      tone = "zinc"; }
+  else if (S.tMain !== null)              { label = "Landed";             tone = "sky"; }
+  else if (k < 0.01)                      { label = "Freefall!";          tone = "sky"; }
+  else if (vt !== Infinity && Math.abs(S.v - vt) / vt < 0.05) { label = "Terminal Velocity"; tone = "emerald"; }
+  else                                    { label = "Eddy Braking Active"; tone = "amber"; }
+
+  const tones = {
+    zinc: "bg-zinc-500/15 text-zinc-300 border-zinc-500/40",
+    sky: "bg-sky-500/15 text-sky-300 border-sky-500/40",
+    amber: "bg-amber-500/15 text-amber-300 border-amber-500/40",
+    emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40",
+  };
+  const textTones = { zinc:"text-zinc-300", sky:"text-sky-300", amber:"text-amber-300", emerald:"text-emerald-300" };
+
+  const banner = $("stateBanner");
+  banner.textContent = label;
+  banner.className = "absolute top-3 left-3 px-2.5 py-1 rounded-md border text-[11px] font-semibold tracking-widest uppercase " + tones[tone];
+  const roState = $("roState");
+  roState.textContent = label;
+  roState.className = "text-xs font-mono font-semibold " + textTones[tone];
+
+  $("clock").textContent = S.t.toFixed(2);
+  $("roVel").textContent = S.v.toFixed(2) + " m/s";
+  $("barVel").style.width = clamp(S.v / 5, 0, 1) * 100 + "%";
+  $("roTerm").textContent = vt === Infinity ? "none (freefall)" : vt.toFixed(2) + " m/s";
+  $("roGrav").textContent = (MASS * G).toFixed(2) + " N";
+  $("roBrake").textContent = (falling ? fBrake : 0).toFixed(2) + " N";
+  $("barBrake").style.width = clamp(fBrake / (MASS * G), 0, 1.2) / 1.2 * 100 + "%";
+  $("roHeat").textContent = S.heat.toFixed(2) + " J";
+  $("matName").textContent = MATERIALS[S.material].label;
+  $("roTimeMain").textContent = S.tMain !== null ? S.tMain.toFixed(2) + " s" : (S.dropped ? "falling…" : "—");
+  $("roTimeGlass").textContent = !S.race ? "race off" : (S.tGlass !== null ? S.tGlass.toFixed(2) + " s" : (S.dropped ? "falling…" : "—"));
+
+  // velocity sparkline (terminal-velocity line + curve)
+  slCtx.clearRect(0, 0, 240, 56);
+  if (vt !== Infinity) {
+    const ty = 54 - clamp(vt / 5, 0, 1) * 50;
+    slCtx.strokeStyle = "rgba(52,211,153,0.4)"; slCtx.setLineDash([3, 4]);
+    slCtx.beginPath(); slCtx.moveTo(0, ty); slCtx.lineTo(240, ty); slCtx.stroke();
+    slCtx.setLineDash([]);
+  }
+  slCtx.strokeStyle = "#fb923c"; slCtx.lineWidth = 1.5;
+  slCtx.beginPath();
+  let started = false;
+  velHistory.forEach((v, i) => {
+    if (v === null) { started = false; return; }
+    const y = 54 - clamp(v / 5, 0, 1) * 50;
+    started ? slCtx.lineTo(i, y) : slCtx.moveTo(i, y);
+    started = true;
+  });
+  slCtx.stroke();
+}
+
+// ---- Material selector ----
+function renderMaterials() {
+  const wrap = $("matGroup");
+  wrap.innerHTML = "";
+  Object.entries(MATERIALS).forEach(([key, m]) => {
+    const active = S.material === key;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.setAttribute("role", "radio");
+    btn.setAttribute("aria-checked", active);
+    btn.className = "flex items-center justify-between px-3 py-2.5 rounded-md border text-left text-xs transition-colors " +
+      (active ? "border-zinc-500 bg-zinc-800" : "border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/70");
+    btn.innerHTML =
+      `<span class="flex items-center gap-2">
+         <span class="w-3 h-3 rounded-full border border-white/20" style="background:${m.tubeHi};${active ? `box-shadow:0 0 8px ${m.tubeHi};` : ""}"></span>
+         <span><span class="font-medium text-zinc-200 block">${m.label}</span>
+         <span class="text-zinc-500 text-[10.5px]">${m.note}</span></span>
+       </span>
+       <span class="text-zinc-500 font-mono">${mCondLabel(m)}</span>`;
+    btn.addEventListener("click", () => { S.material = key; renderMaterials(); resetDrop(); });
+    wrap.appendChild(btn);
+  });
+}
+function mCondLabel(m) { return m.slotted ? "100*" : m.cond; }
+renderMaterials();
+
+// ---- Controls wiring ----
+function setMagnet(which) {
+  S.magnet = which;
+  const on  = "px-2 py-2 rounded-md border text-xs transition-colors border-orange-500/60 bg-orange-500/15 text-orange-200";
+  const off = "px-2 py-2 rounded-md border text-xs transition-colors border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/70 text-zinc-300";
+  $("magCeramic").className = which === "ceramic" ? on : off;
+  $("magN52").className = which === "n52" ? on : off;
+  resetDrop();
+}
+$("magCeramic").addEventListener("click", () => setMagnet("ceramic"));
+$("magN52").addEventListener("click", () => setMagnet("n52"));
+$("wall").addEventListener("input", e => { S.wallMm = Number(e.target.value); $("wallVal").textContent = Number(e.target.value).toFixed(1); });
+$("raceToggle").addEventListener("change", e => { S.race = e.target.checked; resetDrop(); });
+$("dropBtn").addEventListener("click", drop);
+canvas.addEventListener("pointerdown", drop);
+
+// ---- Help overlay ----
+const overlay = $("helpOverlay");
+function showHelp(show) {
+  overlay.classList.toggle("hidden", !show);
+  overlay.classList.toggle("flex", show);
+}
+$("helpBtn").addEventListener("click", () => showHelp(true));
+$("helpClose").addEventListener("click", () => showHelp(false));
+$("helpStart").addEventListener("click", () => showHelp(false));
+overlay.addEventListener("click", e => { if (e.target === overlay) showHelp(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") showHelp(false); });
+
+// ---- Go ----
+requestAnimationFrame(t => { lastT = t; requestAnimationFrame(frame); });
+</script>
+</body>
+</html>
