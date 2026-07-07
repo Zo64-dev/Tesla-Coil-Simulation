@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Spark Lab — Physics You Can Touch</title>
+<meta name="description" content="Interactive physics simulations: break them, tune them, watch them glow. Learn fundamental principles by playing with them." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+  .display { font-family: 'Chakra Petch', sans-serif; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  /* The site's signature: a gas-emission spectrum strip.
+     Five bands = the five gases in our first lab (He, Ne, Ar, Kr, Xe). */
+  .spectrum {
+    height: 4px;
+    background: linear-gradient(90deg,
+      #ffab6e 0%,   #ffab6e 20%,
+      #ff3c00 20%,  #ff3c00 40%,
+      #9a7bff 40%,  #9a7bff 60%,
+      #7fb3ff 60%,  #7fb3ff 80%,
+      #2f6bff 80%,  #2f6bff 100%);
+  }
+  .card-glow:hover { box-shadow: 0 0 32px -8px var(--accent, #a78bfa); }
+</style>
+</head>
+<body class="min-h-screen bg-[#0a0a12] text-zinc-100 antialiased">
+
+<!-- ================= NAVIGATION ================= -->
+<header class="sticky top-0 z-40 border-b border-zinc-800/80 bg-[#0a0a12]/85 backdrop-blur">
+  <nav class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between" aria-label="Main navigation">
+    <a href="#top" class="flex items-center gap-2.5 group">
+      <span class="display text-lg font-bold tracking-wider">SPARK<span class="text-violet-400">LAB</span></span>
+      <span class="hidden sm:inline mono text-[10px] text-zinc-500 border border-zinc-700 rounded px-1.5 py-0.5">interactive physics</span>
+    </a>
+    <div class="flex items-center gap-1 text-sm">
+      <a href="#labs" class="px-3 py-1.5 rounded-md text-zinc-300 hover:text-white hover:bg-zinc-800/70 transition-colors">Labs</a>
+      <a href="#why" class="px-3 py-1.5 rounded-md text-zinc-300 hover:text-white hover:bg-zinc-800/70 transition-colors hidden sm:block">Why play?</a>
+      <a href="#labs" class="ml-1 px-3.5 py-1.5 rounded-md bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors">Start experimenting</a>
+    </div>
+  </nav>
+  <div class="spectrum"></div>
+</header>
+
+<!-- ================= HERO ================= -->
+<section id="top" class="relative overflow-hidden">
+  <canvas id="heroSparks" class="absolute inset-0 w-full h-full opacity-60" aria-hidden="true"></canvas>
+  <div class="relative max-w-6xl mx-auto px-4 pt-16 pb-14 sm:pt-24 sm:pb-20 text-center">
+    <p class="mono text-[11px] sm:text-xs tracking-[0.3em] text-violet-300 uppercase mb-4">// caution: curiosity in progress</p>
+    <h1 class="display text-4xl sm:text-6xl font-bold leading-tight tracking-tight">
+      Physics you can <span class="text-violet-400">touch</span>.
+    </h1>
+    <p class="mt-5 text-zinc-400 max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
+      Textbooks tell you the rules. Here, you get to <em class="text-zinc-200 not-italic font-medium">break them, tune them, and watch them glow</em>.
+      Every lab is a real physical principle turned into something you can grab with your hands.
+    </p>
+    <div class="mt-8 flex items-center justify-center gap-3 flex-wrap">
+      <a href="#labs" class="px-5 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 font-medium text-sm transition-colors">
+        Enter the labs ↓
+      </a>
+      <span id="labCount" class="mono text-xs text-zinc-500"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ================= LAB GRID ================= -->
+<section id="labs" class="max-w-6xl mx-auto px-4 py-12 sm:py-16">
+  <div class="flex items-end justify-between gap-4 mb-2 flex-wrap">
+    <div>
+      <h2 class="display text-2xl sm:text-3xl font-bold">The Labs</h2>
+      <p class="text-sm text-zinc-500 mt-1">Pick an experiment. No lab coat required.</p>
+    </div>
+  </div>
+
+  <!-- Topic filter chips (auto-generated from the simulation list) -->
+  <div id="filterBar" class="flex flex-wrap gap-2 mt-4 mb-6" role="group" aria-label="Filter by topic"></div>
+
+  <!-- Simulation cards render here -->
+  <div id="labGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+</section>
+
+<!-- ================= WHY SECTION ================= -->
+<section id="why" class="border-t border-zinc-800/80">
+  <div class="spectrum opacity-40"></div>
+  <div class="max-w-6xl mx-auto px-4 py-12 sm:py-16">
+    <h2 class="display text-2xl sm:text-3xl font-bold mb-8">Why learn by playing?</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+        <p class="text-2xl mb-3">🎛</p>
+        <h3 class="display font-semibold mb-2">Turn the knobs yourself</h3>
+        <p class="text-sm text-zinc-400 leading-relaxed">A formula says voltage scales the field. A slider lets you <em>feel</em> it. When you find resonance by hand, you never forget what resonance means.</p>
+      </div>
+      <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+        <p class="text-2xl mb-3">💥</p>
+        <h3 class="display font-semibold mb-2">Failure is free here</h3>
+        <p class="text-sm text-zinc-400 leading-relaxed">Detune the coil. Overdrive the voltage. Nothing sparks, melts, or bills you for equipment. Every wrong setting teaches you where the right one lives.</p>
+      </div>
+      <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+        <p class="text-2xl mb-3">🔬</p>
+        <h3 class="display font-semibold mb-2">Real numbers, real physics</h3>
+        <p class="text-sm text-zinc-400 leading-relaxed">These aren't cartoons. The labs use genuine constants — real ionization energies, real inverse-square falloff — so intuition you build here transfers to the classroom.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FOOTER ================= -->
+<footer class="border-t border-zinc-800/80">
+  <div class="max-w-6xl mx-auto px-4 py-8 flex items-center justify-between flex-wrap gap-3">
+    <p class="mono text-xs text-zinc-500">SPARK LAB · built for curious minds</p>
+    <p class="text-xs text-zinc-600">New experiments are always charging up. ⚡</p>
+  </div>
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   ★★★  HOW TO ADD A NEW SIMULATION  ★★★
+   ─────────────────────────────────────────────────────────────
+   This is the ONLY part of the file you ever need to touch.
+
+   1. Save your new simulation's HTML file in the SAME FOLDER
+      as this page (e.g. "wave-tank.html").
+   2. Copy one of the blocks below (everything from `{` to `},`).
+   3. Paste it into the SIMULATIONS list and change the details.
+   4. Save. Done — the card, its topic filters, and the lab
+      counter all update automatically.
+
+   Field guide:
+   • title       – the lab's name shown on the card
+   • tagline     – one short line under the title
+   • description – 1–2 sentences: what the student will DO
+   • topics      – physics areas (these become filter buttons)
+   • level       – who it's for
+   • accent      – the card's glow color (any hex color)
+   • icon        – an emoji for the card
+   • link        – the filename of the simulation page
+   • comingSoon  – true = shows a teaser card with no link yet
+   ═══════════════════════════════════════════════════════════════ */
+
+const SIMULATIONS = [
+  {
+    title: "Tesla Coil & Gas Discharge Laboratory",
+    tagline: "Make lightning. Light gas with pure field energy.",
+    description: "Tune a high-voltage coil to resonance, then drag a gas bulb into its field and watch neon, argon, and xenon glow their true colors — no wires attached.",
+    topics: ["Electromagnetism", "Resonance", "Atomic Physics"],
+    level: "Beginner friendly",
+    accent: "#a78bfa",
+    icon: "⚡",
+    link: "tesla-coil-lab.html",
+    comingSoon: false,
+  },
+
+  {
+    title: "The Kelvin Water Dropper",
+    tagline: "20,000 volts from nothing but falling water.",
+    description: "Lord Kelvin's improbable 1867 machine: two dripping streams, crossed wires, and runaway positive feedback that builds a spark from a random whisper of charge.",
+    topics: ["Electrostatics", "Feedback Systems"],
+    level: "Beginner friendly",
+    accent: "#5eead4",
+    icon: "💧",
+    link: "kelvin-water-dropper.html",
+    comingSoon: false,
+  },
+
+  /* ── Teasers for what's next (set comingSoon:false + add a link
+        when the simulation file is ready) ─────────────────────── */
+  {
+    title: "Double-Slit Interference Studio",
+    tagline: "Watch particles behave like waves.",
+    description: "Fire photons one at a time and see an interference pattern build up — the experiment that broke classical physics.",
+    topics: ["Quantum", "Waves & Optics"],
+    level: "Beginner friendly",
+    accent: "#38bdf8",
+    icon: "🌊",
+    link: "",
+    comingSoon: true,
+  },
+  {
+    title: "Orbital Mechanics Sandbox",
+    tagline: "Fling planets. Build a solar system. Cause chaos.",
+    description: "Place stars and planets, give them a push, and discover why orbits are ellipses — and how easily gravity turns to mayhem.",
+    topics: ["Gravity", "Mechanics"],
+    level: "All levels",
+    accent: "#fbbf24",
+    icon: "🪐",
+    link: "",
+    comingSoon: true,
+  },
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   Everything below runs the site automatically.
+   You never need to edit past this line.
+   ═══════════════════════════════════════════════════════════════ */
+
+const grid = document.getElementById("labGrid");
+const filterBar = document.getElementById("filterBar");
+let activeTopic = "All";
+
+// Live lab counter in the hero
+(function () {
+  const live = SIMULATIONS.filter(s => !s.comingSoon).length;
+  const soon = SIMULATIONS.filter(s => s.comingSoon).length;
+  document.getElementById("labCount").textContent =
+    live + " live lab" + (live === 1 ? "" : "s") +
+    (soon ? " · " + soon + " charging up" : "");
+})();
+
+// Build topic filter chips from whatever topics exist in the list
+function renderFilters() {
+  const topics = ["All", ...new Set(SIMULATIONS.flatMap(s => s.topics))];
+  filterBar.innerHTML = "";
+  topics.forEach(t => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = t;
+    b.className = "px-3 py-1.5 rounded-full text-xs border transition-colors " +
+      (t === activeTopic
+        ? "border-violet-500 bg-violet-600/20 text-violet-200"
+        : "border-zinc-700 bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500");
+    b.addEventListener("click", () => { activeTopic = t; renderFilters(); renderGrid(); });
+    filterBar.appendChild(b);
+  });
+}
+
+// Render the simulation cards
+function renderGrid() {
+  grid.innerHTML = "";
+  const shown = SIMULATIONS.filter(s => activeTopic === "All" || s.topics.includes(activeTopic));
+
+  shown.forEach(sim => {
+    const card = document.createElement(sim.comingSoon ? "div" : "a");
+    if (!sim.comingSoon) {
+      card.href = sim.link;
+      card.setAttribute("aria-label", "Open " + sim.title);
+    }
+    card.style.setProperty("--accent", sim.accent);
+    card.className =
+      "card-glow group relative rounded-xl border bg-zinc-900/50 p-5 flex flex-col transition-all duration-200 " +
+      (sim.comingSoon
+        ? "border-zinc-800/70 opacity-75"
+        : "border-zinc-800 hover:border-zinc-600 hover:-translate-y-0.5 cursor-pointer");
+
+    const topicChips = sim.topics.map(t =>
+      `<span class="mono text-[10px] px-2 py-0.5 rounded-full border border-zinc-700 text-zinc-400">${t}</span>`
+    ).join(" ");
+
+    card.innerHTML = `
+      <div class="h-1 rounded-full mb-4" style="background:${sim.accent}; box-shadow:0 0 10px ${sim.accent};"></div>
+      <div class="flex items-start justify-between gap-2 mb-2">
+        <span class="text-2xl" aria-hidden="true">${sim.icon}</span>
+        ${sim.comingSoon
+          ? `<span class="mono text-[10px] uppercase tracking-wider px-2 py-1 rounded border border-amber-500/40 bg-amber-500/10 text-amber-300">Charging up</span>`
+          : `<span class="mono text-[10px] uppercase tracking-wider px-2 py-1 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-300">Live</span>`}
+      </div>
+      <h3 class="display font-semibold text-base leading-snug">${sim.title}</h3>
+      <p class="text-xs mt-1 mb-2" style="color:${sim.accent}">${sim.tagline}</p>
+      <p class="text-sm text-zinc-400 leading-relaxed flex-1">${sim.description}</p>
+      <div class="flex flex-wrap gap-1.5 mt-4 mb-3">${topicChips}</div>
+      <div class="flex items-center justify-between text-xs">
+        <span class="text-zinc-500">${sim.level}</span>
+        ${sim.comingSoon
+          ? `<span class="text-zinc-600">In development</span>`
+          : `<span class="font-medium transition-colors" style="color:${sim.accent}">Enter the lab →</span>`}
+      </div>`;
+    grid.appendChild(card);
+  });
+
+  if (!shown.length) {
+    grid.innerHTML = `<p class="text-sm text-zinc-500 col-span-full">No labs in this topic yet — they're charging up. Try another filter.</p>`;
+  }
+}
+
+renderFilters();
+renderGrid();
+
+/* ── Ambient hero sparks (subtle, respects reduced-motion) ────── */
+(function () {
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cv = document.getElementById("heroSparks");
+  const cx = cv.getContext("2d");
+  let w, h, particles = [];
+
+  function size() {
+    w = cv.width = cv.offsetWidth;
+    h = cv.height = cv.offsetHeight;
+  }
+  size();
+  window.addEventListener("resize", size);
+
+  const COLORS = ["#ffab6e", "#ff3c00", "#9a7bff", "#7fb3ff", "#2f6bff", "#a78bfa"];
+  for (let i = 0; i < 36; i++) {
+    particles.push({
+      x: Math.random(), y: Math.random(),
+      vx: (Math.random() - 0.5) * 0.0006,
+      vy: (Math.random() - 0.5) * 0.0006,
+      r: 0.6 + Math.random() * 1.6,
+      c: COLORS[Math.floor(Math.random() * COLORS.length)],
+      p: Math.random() * Math.PI * 2,
+    });
+  }
+
+  (function tick(t) {
+    cx.clearRect(0, 0, w, h);
+    particles.forEach(p => {
+      p.x = (p.x + p.vx + 1) % 1;
+      p.y = (p.y + p.vy + 1) % 1;
+      const tw = 0.35 + 0.65 * Math.abs(Math.sin(t / 900 + p.p)); // twinkle
+      cx.globalAlpha = tw * 0.8;
+      cx.fillStyle = p.c;
+      cx.shadowColor = p.c;
+      cx.shadowBlur = 8;
+      cx.beginPath();
+      cx.arc(p.x * w, p.y * h, p.r, 0, Math.PI * 2);
+      cx.fill();
+    });
+    cx.globalAlpha = 1; cx.shadowBlur = 0;
+    requestAnimationFrame(tick);
+  })(0);
+})();
+</script>
+</body>
+</html>

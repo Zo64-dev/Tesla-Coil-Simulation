@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>The Kelvin Water Dropper — Spark Lab</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html { -webkit-tap-highlight-color: transparent; }
+  #labCanvas { touch-action: none; user-select: none; -webkit-user-select: none; }
+  input[type="range"] { height: 6px; cursor: pointer; }
+  input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; }
+  @media (prefers-reduced-motion: reduce) { .transition-all { transition: none !important; } }
+</style>
+</head>
+<body class="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
+
+<!-- ===== Header ===== -->
+<header class="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sticky top-0 z-40">
+  <div class="flex items-center gap-3 min-w-0">
+    <a href="index.html" class="shrink-0 text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-700 rounded-md px-2 py-1.5 transition-colors" title="Back to Spark Lab">←</a>
+    <div class="w-9 h-9 shrink-0 rounded-lg bg-teal-600/20 border border-teal-500/40 flex items-center justify-center text-lg">💧</div>
+    <div class="min-w-0">
+      <h1 class="text-sm sm:text-base font-semibold tracking-wide truncate">The Kelvin Water Dropper</h1>
+      <p class="text-[11px] text-zinc-400 hidden sm:block">Electrostatic induction &amp; runaway feedback — powered by falling water</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-2 shrink-0">
+    <button id="helpBtn" class="flex items-center gap-1.5 text-xs px-3 py-2 rounded-md border border-zinc-700 bg-zinc-800/70 hover:bg-zinc-700/70 text-zinc-300 transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span class="hidden sm:inline">How to use</span><span class="sm:hidden">Help</span>
+    </button>
+    <button id="dripBtn" class="flex items-center gap-1.5 text-xs px-3 py-2 rounded-md border transition-colors border-teal-500/50 bg-teal-500/15 text-teal-300">
+      <span id="dripLabel">Water ON</span>
+    </button>
+  </div>
+</header>
+
+<!-- ===== Main layout ===== -->
+<main class="p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-7xl mx-auto">
+
+  <!-- ---- Visualizer (first on mobile) ---- -->
+  <section class="lg:col-span-6 lg:order-2">
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden relative">
+      <canvas id="labCanvas" width="800" height="520" class="w-full h-auto block"
+        aria-label="Kelvin water dropper simulation. Two water streams fall through charged rings into cans, building voltage until a spark jumps."></canvas>
+      <div id="stateBanner" class="absolute top-3 left-3 px-2.5 py-1 rounded-md border text-[11px] font-semibold tracking-widest uppercase bg-cyan-500/15 text-cyan-300 border-cyan-500/40">Seeding Imbalance</div>
+      <div class="absolute top-3 right-3 px-2.5 py-1 rounded-md border border-zinc-700 bg-zinc-900/80 text-[11px] text-zinc-300">Lord Kelvin · 1867</div>
+    </div>
+    <p class="text-[11px] text-zinc-500 mt-2">💧 No batteries anywhere in this machine — every volt comes from falling water.</p>
+  </section>
+
+  <!-- ---- Control panel ---- -->
+  <section class="lg:col-span-3 lg:order-1 space-y-3">
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">⚙ Control Dashboard</h2>
+
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <label for="dripRate" class="text-xs text-zinc-300">💧 Drip Rate</label>
+          <span class="text-xs font-mono text-zinc-100 bg-zinc-800 px-1.5 py-0.5 rounded"><span id="dripVal">8</span> drops/s</span>
+        </div>
+        <input id="dripRate" type="range" min="1" max="15" step="1" value="8" class="w-full accent-teal-500" />
+      </div>
+
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <label for="dropSize" class="text-xs text-zinc-300">⚪ Drop Size</label>
+          <span class="text-xs font-mono text-zinc-100 bg-zinc-800 px-1.5 py-0.5 rounded"><span id="sizeVal">3.0</span> mm</span>
+        </div>
+        <input id="dropSize" type="range" min="1" max="5" step="0.5" value="3" class="w-full accent-sky-500" />
+      </div>
+
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <label for="humidity" class="text-xs text-zinc-300">🌫 Air Humidity</label>
+          <span class="text-xs font-mono text-zinc-100 bg-zinc-800 px-1.5 py-0.5 rounded"><span id="humVal">25</span> %</span>
+        </div>
+        <input id="humidity" type="range" min="0" max="100" step="1" value="25" class="w-full accent-zinc-400" />
+        <p id="humHint" class="text-[10.5px] text-zinc-500 mt-1">Humid air lets charge leak away</p>
+      </div>
+
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <label for="gap" class="text-xs text-zinc-300">⚡ Spark Gap</label>
+          <span class="text-xs font-mono text-zinc-100 bg-zinc-800 px-1.5 py-0.5 rounded"><span id="gapVal">4.0</span> mm</span>
+        </div>
+        <input id="gap" type="range" min="1" max="10" step="0.5" value="4" class="w-full accent-amber-500" />
+        <p class="text-[10.5px] text-zinc-500 mt-1">Air breaks down at ≈ 3 kV per mm</p>
+      </div>
+
+      <button id="drainBtn" class="w-full py-2 rounded-md border border-zinc-700 bg-zinc-800/70 hover:bg-zinc-700/70 text-xs text-zinc-300 transition-colors">
+        ⏚ Drain All Charge (reset)
+      </button>
+    </div>
+
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">🧪 Experiment Ideas</h2>
+      <ul class="text-[11.5px] text-zinc-400 space-y-2 leading-relaxed">
+        <li>• Crank humidity to 100 % — can the machine still charge up?</li>
+        <li>• Widen the gap to 10 mm. How long until a 30 kV spark?</li>
+        <li>• Find the slowest drip rate that still beats the leakage.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ---- Metrics + lab notes ---- -->
+  <section class="lg:col-span-3 lg:order-3 space-y-3">
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">📡 Live Readouts</h2>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">System State</span>
+          <span id="roState" class="text-xs font-mono font-semibold text-cyan-300">Seeding Imbalance</span>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Left Can Potential</span>
+          <span id="roLeft" class="text-xs font-mono font-semibold text-red-300">+0 V</span>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Right Can Potential</span>
+          <span id="roRight" class="text-xs font-mono font-semibold text-blue-300">−0 V</span>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Potential Difference</span>
+          <span id="roDiff" class="text-xs font-mono font-semibold text-zinc-100">0 V</span>
+        </div>
+        <div class="mt-1 h-1 rounded-full bg-zinc-800 overflow-hidden">
+          <div id="barDiff" class="h-full rounded-full transition-all duration-150" style="width:0%; background:#f59e0b; box-shadow:0 0 6px #f59e0b;"></div>
+        </div>
+        <p class="text-[10px] text-zinc-600 mt-0.5">Breakdown at <span id="roBreak">12.0 kV</span></p>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Charge Growth Rate</span>
+          <span id="roGrow" class="text-xs font-mono font-semibold text-zinc-100">—</span>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">⚡ Sparks Fired</span>
+          <span id="roSparks" class="text-xs font-mono font-semibold text-amber-300">0</span>
+        </div>
+      </div>
+
+      <div>
+        <span class="text-[11px] text-zinc-500 block mb-1">Voltage vs Time</span>
+        <canvas id="sparkline" width="240" height="56" class="w-full h-14 rounded-md border border-zinc-800 bg-zinc-950"></canvas>
+        <p class="text-[10px] text-zinc-600 mt-1">Watch the exponential curve — then the crash at each spark.</p>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">📓 Lab Notes</h2>
+      <ul class="text-[11.5px] text-zinc-400 space-y-2 leading-relaxed">
+        <li><span class="text-zinc-200 font-medium">Induction:</span> a charged ring doesn't touch the water — it pulls opposite charge into each drop as it breaks free. The drop then carries that charge down into the can.</li>
+        <li><span class="text-zinc-200 font-medium">Positive feedback:</span> the wires cross — each can charges the ring above the <em>other</em> stream. More charge → stronger induction → more charge. A whisper becomes a shout.</li>
+        <li><span class="text-zinc-200 font-medium">Breakdown:</span> when the field between the electrodes exceeds ~3 kV/mm, air itself ionizes and a spark dumps everything at once.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<!-- ===== Help overlay ===== -->
+<div id="helpOverlay" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="How to use this simulation">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+    <div class="flex items-start justify-between mb-4">
+      <h2 class="text-base font-semibold flex items-center gap-2">💧 How to Use This Lab</h2>
+      <button id="helpClose" class="p-2 rounded-md hover:bg-zinc-800 text-zinc-400" aria-label="Close help">✕</button>
+    </div>
+    <div class="space-y-4 text-sm text-zinc-300 leading-relaxed">
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">The most improbable machine in physics</h3>
+        <p class="text-zinc-400">In 1867, Lord Kelvin built a generator with <em>no moving parts except falling water</em> — yet it produces tens of thousands of volts. Two streams drip from one reservoir through two metal rings into two cans. That's it. That's the whole machine.</p>
+      </div>
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">1 · Watch the whisper become a shout</h3>
+        <p class="text-zinc-400">By pure chance, one side always starts with a few extra electrons. Because the wires <span class="text-amber-300">cross</span> — each can feeds the ring above the <em>opposite</em> stream — that tiny imbalance amplifies itself. Watch the drops change color as they pick up charge, and the voltage curve bend upward exponentially.</p>
+      </div>
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">2 · Race growth against leakage</h3>
+        <p class="text-zinc-400">Raise <span class="text-teal-300">Drip Rate</span> and <span class="text-sky-300">Drop Size</span> to charge faster. Raise <span class="text-zinc-300">Humidity</span> and charge bleeds away through the damp air — push it high enough and the machine loses the race entirely. This is why the real experiment fails on rainy days.</p>
+      </div>
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">3 · Set the spark gap</h3>
+        <p class="text-zinc-400">Air insulates until the field reaches about <span class="text-amber-300">3 kV per millimeter</span> — then it ionizes and CRACK: the stored energy dumps in a flash and the cycle starts over. A wider gap means longer waits but bigger lightning.</p>
+      </div>
+    </div>
+    <button id="helpStart" class="mt-5 w-full py-2.5 rounded-md bg-teal-600 hover:bg-teal-500 text-sm font-medium transition-colors">Start experimenting</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   THE KELVIN WATER DROPPER — plain JS engine
+   Electrostatic induction + positive feedback + air breakdown
+   ============================================================ */
+
+const W = 800, H = 520;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+// ---- Scene geometry ----
+const LX = 300, RX = 500;          // stream center x positions
+const NOZZLE_Y = 118;              // where drops are born
+const RING_Y = 215;                // inductor rings
+const CAN_TOP = 372, CAN_BOT = 462, CAN_W = 96;
+const GAP_CX = 400, GAP_Y = 300;   // spark electrodes
+
+// ---- Colors ----
+const POS = "#f87171", NEG = "#60a5fa", WATER = "#7dd3fc";
+
+// ---- State ----
+const S = {
+  dripping: true,
+  dripRate: 8,     // drops per second per stream
+  dropSize: 3,     // mm
+  humidity: 25,    // %
+  gapMm: 4,        // spark gap in mm
+  V: 1,            // potential difference in volts (left +V/2, right −V/2)
+  sparks: 0,
+  sparkT: -1e9,    // time of last spark
+};
+
+const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ---- Physics ----
+function growthRate() {
+  // charge delivered per second scales with drip rate × drop size;
+  // humid air leaks charge away (quadratic — damp air is dramatically worse)
+  const gain = S.dripping ? S.dripRate * S.dropSize * 0.028 : 0;
+  const leak = 0.004 + Math.pow(S.humidity / 100, 2) * 1.5;
+  return gain - leak;
+}
+const breakdownV = () => S.gapMm * 3000; // ≈3 kV/mm in air
+
+// ---- Particles ----
+let drops = [], splashes = [];
+let spawnAcc = 0;
+
+function fmtV(v) {
+  return v >= 1000 ? (v / 1000).toFixed(2) + " kV" : Math.round(v) + " V";
+}
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${clamp(a,0,1)})`;
+}
+
+// ---- Canvas ----
+const canvas = document.getElementById("labCanvas");
+const ctx = canvas.getContext("2d");
+const slCanvas = document.getElementById("sparkline");
+const slCtx = slCanvas.getContext("2d");
+let history = new Array(240).fill(0), histAcc = 0;
+
+let lastT = 0;
+function frame(now) {
+  const dt = Math.min((now - lastT) / 1000, 0.05) || 0.016;
+  lastT = now;
+
+  // ---- update voltage (exponential feedback vs leakage) ----
+  const r = growthRate();
+  S.V = clamp(S.V * Math.exp(r * dt), 0.8, 80000);
+  const Vb = breakdownV();
+  const charge = clamp(S.V / Vb, 0, 1); // 0..1 toward breakdown
+
+  // spark!
+  if (S.V >= Vb && now - S.sparkT > 400) {
+    S.sparkT = now;
+    S.sparks++;
+    S.V = Vb * 0.02 + 1; // discharge to a small residual
+  }
+  const sparkAge = now - S.sparkT; // ms since last spark (for flash animation)
+
+  // ---- spawn / move drops ----
+  if (S.dripping) {
+    spawnAcc += S.dripRate * dt;
+    while (spawnAcc >= 1) {
+      spawnAcc -= 1;
+      [LX, RX].forEach(x => drops.push({
+        x: x + (Math.random() - 0.5) * 3,
+        y: NOZZLE_Y, vy: 20 + Math.random() * 15,
+        side: x === LX ? "L" : "R", charged: false,
+      }));
+    }
+  }
+  drops.forEach(d => {
+    d.vy += 620 * dt;           // gravity
+    d.y += d.vy * dt;
+    if (!d.charged && d.y > RING_Y) d.charged = true; // induction happens at the ring
+    if (d.y > CAN_TOP + 8) {
+      splashes.push({ x: d.x, y: CAN_TOP + 8, t: now });
+      d.dead = true;
+    }
+  });
+  drops = drops.filter(d => !d.dead);
+  splashes = splashes.filter(s => now - s.t < 350);
+
+  draw(now, charge, Vb, sparkAge, r);
+  updateReadouts(now, charge, Vb, r, dt);
+  requestAnimationFrame(frame);
+}
+
+// ---- Main draw ----
+function draw(now, charge, Vb, sparkAge, r) {
+  // background
+  ctx.clearRect(0, 0, W, H);
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#09090f"); bg.addColorStop(1, "#101018");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "rgba(120,130,180,0.05)"; ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y <= H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  // ground
+  ctx.fillStyle = "#1c1c26"; ctx.fillRect(0, 470, W, H - 470);
+
+  // ---- reservoir + nozzles ----
+  ctx.fillStyle = "#23232f";
+  ctx.fillRect(LX - 60, 30, (RX - LX) + 120, 52);
+  ctx.strokeStyle = "#3a3a4a"; ctx.strokeRect(LX - 60, 30, (RX - LX) + 120, 52);
+  ctx.fillStyle = "rgba(125,211,252,0.35)";
+  ctx.fillRect(LX - 54, 44, (RX - LX) + 108, 32);
+  ctx.fillStyle = "rgba(226,232,240,0.55)";
+  ctx.font = "10px ui-monospace, monospace"; ctx.textAlign = "center";
+  ctx.fillText("WATER RESERVOIR (shared — one body of water)", GAP_CX, 24);
+  [LX, RX].forEach(x => {
+    ctx.fillStyle = "#3f3f46";
+    ctx.fillRect(x - 6, 82, 12, 26);
+    ctx.beginPath(); ctx.moveTo(x - 8, 108); ctx.lineTo(x + 8, 108); ctx.lineTo(x + 3, 118); ctx.lineTo(x - 3, 118); ctx.closePath(); ctx.fill();
+  });
+
+  // ---- cross-connection wires (the secret of the machine) ----
+  // left ring ← right can (negative), right ring ← left can (positive)
+  const wireGlow = 0.25 + charge * 0.75;
+  drawWire(LX, RING_Y, RX, CAN_TOP + 30, NEG, wireGlow);   // right can → left ring
+  drawWire(RX, RING_Y, LX, CAN_TOP + 30, POS, wireGlow);   // left can → right ring
+  // electrode stalks from cans to the spark gap
+  drawWire(LX + CAN_W / 2 - 6, CAN_TOP + 46, GAP_CX - gapPx() / 2 - 8, GAP_Y, POS, wireGlow, true);
+  drawWire(RX - CAN_W / 2 + 6, CAN_TOP + 46, GAP_CX + gapPx() / 2 + 8, GAP_Y, NEG, wireGlow, true);
+
+  // ---- inductor rings (left = −, right = +) ----
+  drawRing(LX, RING_Y, NEG, charge);
+  drawRing(RX, RING_Y, POS, charge);
+
+  // ---- collection cans (left = +, right = −) ----
+  drawCan(LX, POS, charge, "+");
+  drawCan(RX, NEG, charge, "−");
+
+  // ---- spark gap electrodes ----
+  const gp = gapPx();
+  [[GAP_CX - gp / 2 - 8, POS], [GAP_CX + gp / 2 + 8, NEG]].forEach(([x, c]) => {
+    ctx.shadowColor = c; ctx.shadowBlur = 10 * charge;
+    const eg = ctx.createRadialGradient(x - 2, GAP_Y - 2, 1, x, GAP_Y, 9);
+    eg.addColorStop(0, "#f4f4f5"); eg.addColorStop(1, "#71717a");
+    ctx.fillStyle = eg;
+    ctx.beginPath(); ctx.arc(x, GAP_Y, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+  // pre-spark corona shimmer when close to breakdown
+  if (charge > 0.8 && !reducedMotion) {
+    ctx.fillStyle = `rgba(253,230,138,${(charge - 0.8) * 2 * Math.random() * 0.5})`;
+    ctx.beginPath(); ctx.arc(GAP_CX, GAP_Y, gp / 2 + 4, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ---- THE SPARK ----
+  if (sparkAge < 260) {
+    const fade = 1 - sparkAge / 260;
+    // white-hot jagged arc(s)
+    for (let k = 0; k < 3; k++) {
+      ctx.beginPath();
+      const x0 = GAP_CX - gp / 2, x1 = GAP_CX + gp / 2;
+      ctx.moveTo(x0, GAP_Y);
+      const segs = 7;
+      for (let i = 1; i <= segs; i++) {
+        const t = i / segs;
+        ctx.lineTo(x0 + (x1 - x0) * t, GAP_Y + (Math.random() - 0.5) * 16 * Math.sin(t * Math.PI));
+      }
+      ctx.strokeStyle = `rgba(255,251,235,${0.9 * fade})`;
+      ctx.lineWidth = k === 0 ? 2.5 : 1.2;
+      ctx.shadowColor = "#fbbf24"; ctx.shadowBlur = 18;
+      ctx.stroke(); ctx.shadowBlur = 0;
+    }
+    // flash halo
+    const fl = ctx.createRadialGradient(GAP_CX, GAP_Y, 2, GAP_CX, GAP_Y, 90 * fade + 20);
+    fl.addColorStop(0, `rgba(254,243,199,${0.5 * fade})`);
+    fl.addColorStop(1, "rgba(254,243,199,0)");
+    ctx.fillStyle = fl;
+    ctx.beginPath(); ctx.arc(GAP_CX, GAP_Y, 110, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ---- water drops ----
+  const rPix = 2 + S.dropSize * 0.7;
+  drops.forEach(d => {
+    let c = WATER, glow = 0;
+    if (d.charged) { c = d.side === "L" ? POS : NEG; glow = 0.3 + charge * 0.7; }
+    ctx.shadowColor = c; ctx.shadowBlur = 8 * glow;
+    ctx.fillStyle = d.charged ? hexA(c, 0.9) : hexA(WATER, 0.75);
+    ctx.beginPath();
+    ctx.ellipse(d.x, d.y, rPix * 0.8, rPix * 1.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+
+  // splashes
+  splashes.forEach(s => {
+    const a = 1 - (now - s.t) / 350;
+    ctx.strokeStyle = `rgba(125,211,252,${0.5 * a})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(s.x, s.y, (1 - a) * 14 + 3, ((1 - a) * 14 + 3) * 0.4, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  // labels
+  ctx.fillStyle = "rgba(226,232,240,0.5)";
+  ctx.font = "10px ui-monospace, monospace"; ctx.textAlign = "center";
+  ctx.fillText("inductor ring (−)", LX, RING_Y + 34);
+  ctx.fillText("inductor ring (+)", RX, RING_Y + 34);
+  ctx.fillText("spark gap", GAP_CX, GAP_Y - 22);
+}
+
+function gapPx() { return 12 + S.gapMm * 2.6; }
+
+function drawWire(x0, y0, x1, y1, color, glow, straight) {
+  ctx.strokeStyle = hexA(color, 0.35 + glow * 0.5);
+  ctx.shadowColor = color; ctx.shadowBlur = 8 * glow;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  if (straight) ctx.lineTo(x1, y1);
+  else ctx.bezierCurveTo(x0, y0 + 90, x1, y1 - 90, x1, y1);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+function drawRing(x, y, color, charge) {
+  ctx.shadowColor = color; ctx.shadowBlur = 16 * charge;
+  ctx.strokeStyle = hexA(color, 0.5 + charge * 0.5);
+  ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.ellipse(x, y - 8, 30, 9, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(x, y + 8, 30, 9, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = hexA(color, 0.3);
+  ctx.beginPath(); ctx.moveTo(x - 30, y - 8); ctx.lineTo(x - 30, y + 8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x + 30, y - 8); ctx.lineTo(x + 30, y + 8); ctx.stroke();
+}
+
+function drawCan(x, color, charge, sign) {
+  const l = x - CAN_W / 2, w = CAN_W, t = CAN_TOP, h = CAN_BOT - CAN_TOP;
+  ctx.shadowColor = color; ctx.shadowBlur = 22 * charge;
+  const cg = ctx.createLinearGradient(l, 0, l + w, 0);
+  cg.addColorStop(0, "#3f3f46"); cg.addColorStop(0.5, "#71717a"); cg.addColorStop(1, "#3f3f46");
+  ctx.fillStyle = cg;
+  ctx.fillRect(l, t, w, h);
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = hexA(color, 0.35 + charge * 0.65);
+  ctx.lineWidth = 2;
+  ctx.strokeRect(l, t, w, h);
+  ctx.beginPath(); ctx.ellipse(x, t, w / 2, 8, 0, 0, Math.PI * 2); ctx.stroke();
+  // charge sign
+  ctx.fillStyle = hexA(color, 0.5 + charge * 0.5);
+  ctx.font = "bold 22px ui-monospace, monospace"; ctx.textAlign = "center";
+  ctx.fillText(sign, x, t + h / 2 + 8);
+  // stray charge symbols floating when highly charged
+  if (charge > 0.35 && !reducedMotion) {
+    ctx.font = "10px ui-monospace, monospace";
+    for (let i = 0; i < Math.round(charge * 4); i++) {
+      ctx.fillStyle = hexA(color, 0.3 + Math.random() * 0.4);
+      ctx.fillText(sign, x + (Math.random() - 0.5) * w * 1.3, t - 6 - Math.random() * 26);
+    }
+  }
+}
+
+// ---- Readouts ----
+const $ = id => document.getElementById(id);
+let lastUi = 0;
+function updateReadouts(now, charge, Vb, r, dt) {
+  // sparkline history (sampled ~30/s, drawn every UI tick)
+  histAcc += dt;
+  if (histAcc > 0.033) { histAcc = 0; history.push(charge); history.shift(); }
+
+  if (now - lastUi < 100) return;
+  lastUi = now;
+
+  const sparkAge = now - S.sparkT;
+  let label, tone;
+  if (!S.dripping)          { label = "WATER OFF";              tone = "zinc"; }
+  else if (sparkAge < 400)  { label = "⚡ DISCHARGE!";           tone = "amber"; }
+  else if (r <= 0)          { label = "Charge Leaking Away";    tone = "red"; }
+  else if (charge > 0.7)    { label = "Approaching Breakdown";  tone = "amber"; }
+  else if (charge > 0.08)   { label = "Exponential Growth";     tone = "emerald"; }
+  else                      { label = "Seeding Imbalance";      tone = "cyan"; }
+
+  const tones = {
+    cyan:    "bg-cyan-500/15 text-cyan-300 border-cyan-500/40",
+    emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40",
+    amber:   "bg-amber-500/15 text-amber-300 border-amber-500/40",
+    red:     "bg-red-500/15 text-red-300 border-red-500/40",
+    zinc:    "bg-zinc-500/15 text-zinc-400 border-zinc-500/40",
+  };
+  const textTones = { cyan:"text-cyan-300", emerald:"text-emerald-300", amber:"text-amber-300", red:"text-red-300", zinc:"text-zinc-400" };
+
+  const banner = $("stateBanner");
+  banner.textContent = label;
+  banner.className = "absolute top-3 left-3 px-2.5 py-1 rounded-md border text-[11px] font-semibold tracking-widest uppercase " + tones[tone];
+  const roState = $("roState");
+  roState.textContent = label;
+  roState.className = "text-xs font-mono font-semibold " + textTones[tone];
+
+  $("roLeft").textContent = "+" + fmtV(S.V / 2);
+  $("roRight").textContent = "−" + fmtV(S.V / 2);
+  $("roDiff").textContent = fmtV(S.V);
+  $("barDiff").style.width = (charge * 100) + "%";
+  $("roBreak").textContent = (Vb / 1000).toFixed(1) + " kV";
+  $("roGrow").textContent = (r >= 0 ? "+" : "") + (Math.exp(r) * 100 - 100).toFixed(0) + " % / s";
+  $("roGrow").className = "text-xs font-mono font-semibold " + (r > 0 ? "text-emerald-300" : "text-red-300");
+  $("roSparks").textContent = S.sparks;
+  $("humHint").textContent = r <= 0 && S.dripping
+    ? "⚠ Leakage now beats charging — too humid!"
+    : "Humid air lets charge leak away";
+
+  // sparkline
+  slCtx.clearRect(0, 0, 240, 56);
+  slCtx.strokeStyle = "rgba(120,130,180,0.25)";
+  slCtx.setLineDash([3, 4]);
+  slCtx.beginPath(); slCtx.moveTo(0, 6); slCtx.lineTo(240, 6); slCtx.stroke(); // breakdown line
+  slCtx.setLineDash([]);
+  slCtx.strokeStyle = "#f59e0b"; slCtx.lineWidth = 1.5;
+  slCtx.beginPath();
+  history.forEach((v, i) => {
+    const x = i, y = 54 - v * 48;
+    i ? slCtx.lineTo(x, y) : slCtx.moveTo(x, y);
+  });
+  slCtx.stroke();
+}
+
+// ---- Controls wiring ----
+function bind(id, valId, key, fmt) {
+  const el = $(id);
+  el.addEventListener("input", () => {
+    S[key] = Number(el.value);
+    $(valId).textContent = fmt ? fmt(el.value) : el.value;
+  });
+}
+bind("dripRate", "dripVal", "dripRate");
+bind("dropSize", "sizeVal", "dropSize", v => Number(v).toFixed(1));
+bind("humidity", "humVal", "humidity");
+bind("gap", "gapVal", "gapMm", v => Number(v).toFixed(1));
+
+$("dripBtn").addEventListener("click", () => {
+  S.dripping = !S.dripping;
+  $("dripLabel").textContent = S.dripping ? "Water ON" : "Water OFF";
+  $("dripBtn").className = "flex items-center gap-1.5 text-xs px-3 py-2 rounded-md border transition-colors " +
+    (S.dripping ? "border-teal-500/50 bg-teal-500/15 text-teal-300" : "border-zinc-700 bg-zinc-800/70 text-zinc-400");
+});
+
+$("drainBtn").addEventListener("click", () => { S.V = 1; });
+
+// ---- Help overlay ----
+const overlay = $("helpOverlay");
+function showHelp(show) {
+  overlay.classList.toggle("hidden", !show);
+  overlay.classList.toggle("flex", show);
+}
+$("helpBtn").addEventListener("click", () => showHelp(true));
+$("helpClose").addEventListener("click", () => showHelp(false));
+$("helpStart").addEventListener("click", () => showHelp(false));
+overlay.addEventListener("click", e => { if (e.target === overlay) showHelp(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") showHelp(false); });
+
+// ---- Go ----
+requestAnimationFrame(t => { lastT = t; requestAnimationFrame(frame); });
+</script>
+</body>
+</html>
