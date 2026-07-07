@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>The Wilson Cloud Chamber — Spark Lab</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html { -webkit-tap-highlight-color: transparent; }
+  #labCanvas { touch-action: manipulation; user-select: none; -webkit-user-select: none; cursor: crosshair; }
+  input[type="range"] { height: 6px; cursor: pointer; }
+  input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; }
+  @media (prefers-reduced-motion: reduce) { .transition-all { transition: none !important; } }
+</style>
+</head>
+<body class="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
+
+<!-- ===== Header ===== -->
+<header class="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sticky top-0 z-40">
+  <div class="flex items-center gap-3 min-w-0">
+    <a href="index.html" class="shrink-0 text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-700 rounded-md px-2 py-1.5 transition-colors" title="Back to Spark Lab">←</a>
+    <div class="w-9 h-9 shrink-0 rounded-lg bg-sky-600/20 border border-sky-500/40 flex items-center justify-center text-lg">🌫</div>
+    <div class="min-w-0">
+      <h1 class="text-sm sm:text-base font-semibold tracking-wide truncate">The Wilson Cloud Chamber</h1>
+      <p class="text-[11px] text-zinc-400 hidden sm:block">Making invisible radiation visible — one ghost trail at a time</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-2 shrink-0">
+    <button id="helpBtn" class="flex items-center gap-1.5 text-xs px-3 py-2 rounded-md border border-zinc-700 bg-zinc-800/70 hover:bg-zinc-700/70 text-zinc-300 transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span class="hidden sm:inline">How to use</span><span class="sm:hidden">Help</span>
+    </button>
+    <button id="powerBtn" class="flex items-center gap-1.5 text-xs px-3 py-2 rounded-md border transition-colors border-sky-500/50 bg-sky-500/15 text-sky-300">
+      <span id="powerLabel">Chamber ON</span>
+    </button>
+  </div>
+</header>
+
+<!-- ===== Main layout ===== -->
+<main class="p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-7xl mx-auto">
+
+  <!-- ---- Visualizer (first on mobile) ---- -->
+  <section class="lg:col-span-6 lg:order-2">
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden relative">
+      <canvas id="labCanvas" width="800" height="520" class="w-full h-auto block"
+        aria-label="Cloud chamber simulation. Radiation leaves glowing mist trails; a magnetic field bends charged particle tracks."></canvas>
+      <div id="stateBanner" class="absolute top-3 left-3 px-2.5 py-1 rounded-md border text-[11px] font-semibold tracking-widest uppercase bg-sky-500/15 text-sky-300 border-sky-500/40">Chamber Active</div>
+      <div class="absolute top-3 right-3 px-2.5 py-1 rounded-md border border-zinc-700 bg-zinc-900/80 text-[11px] text-zinc-300">C.T.R. Wilson · Nobel 1927</div>
+    </div>
+    <p class="text-[11px] text-zinc-500 mt-2">👆 Tap anywhere in the chamber to fire a test particle from that spot.</p>
+  </section>
+
+  <!-- ---- Control panel ---- -->
+  <section class="lg:col-span-3 lg:order-1 space-y-3">
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">☢ Radiation Source</h2>
+      <div id="sourceGroup" class="grid grid-cols-1 gap-1.5" role="radiogroup" aria-label="Radiation source"></div>
+      <label class="flex items-center gap-2 mt-3 text-xs text-zinc-300 cursor-pointer">
+        <input id="cosmicToggle" type="checkbox" checked class="accent-sky-500 w-4 h-4" />
+        Cosmic ray background <span class="text-zinc-500">(muons from space)</span>
+      </label>
+    </div>
+
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">⚙ Control Dashboard</h2>
+
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <label for="bfield" class="text-xs text-zinc-300">🧲 Magnetic Field</label>
+          <span class="text-xs font-mono text-zinc-100 bg-zinc-800 px-1.5 py-0.5 rounded"><span id="bVal">0.0</span> T</span>
+        </div>
+        <input id="bfield" type="range" min="0" max="2" step="0.1" value="0" class="w-full accent-fuchsia-500" />
+        <button id="bDirBtn" class="mt-2 w-full py-1.5 rounded-md border border-zinc-700 bg-zinc-800/70 hover:bg-zinc-700/70 text-[11px] text-zinc-300 transition-colors">
+          Field direction: <span id="bDirLabel" class="font-mono">⊙ out of screen</span>
+        </button>
+      </div>
+
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <label for="activity" class="text-xs text-zinc-300">📡 Source Activity</label>
+          <span class="text-xs font-mono text-zinc-100 bg-zinc-800 px-1.5 py-0.5 rounded"><span id="actVal">6</span> /s</span>
+        </div>
+        <input id="activity" type="range" min="1" max="30" step="1" value="6" class="w-full accent-amber-500" />
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label for="supersat" class="text-xs text-zinc-300">❄ Vapor Supersaturation</label>
+          <span class="text-xs font-mono text-zinc-100 bg-zinc-800 px-1.5 py-0.5 rounded"><span id="satVal">80</span> %</span>
+        </div>
+        <input id="supersat" type="range" min="50" max="100" step="1" value="80" class="w-full accent-sky-500" />
+        <p class="text-[10.5px] text-zinc-500 mt-1">Richer vapor = brighter, longer-lasting trails</p>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">🧪 Experiment Ideas</h2>
+      <ul class="text-[11.5px] text-zinc-400 space-y-2 leading-relaxed">
+        <li>• Turn the field to 2 T with a beta source — watch electrons spiral.</li>
+        <li>• Compare: why do alphas barely bend when betas corkscrew?</li>
+        <li>• Flip the field direction. Which way do tracks curl now?</li>
+        <li>• Switch everything off except cosmic rays — that's real background radiation passing through you right now.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ---- Metrics + lab notes ---- -->
+  <section class="lg:col-span-3 lg:order-3 space-y-3">
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">📡 Live Readouts</h2>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Chamber State</span>
+          <span id="roState" class="text-xs font-mono font-semibold text-sky-300">Chamber Active</span>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Tracks Detected</span>
+          <span id="roTracks" class="text-xs font-mono font-semibold text-zinc-100">0</span>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Detection Rate</span>
+          <span id="roRate" class="text-xs font-mono font-semibold text-zinc-100">0.0 /s</span>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Lorentz Force</span>
+          <span id="roLorentz" class="text-xs font-mono font-semibold text-zinc-400">OFF</span>
+        </div>
+        <p id="roCurl" class="text-[10px] text-zinc-600 mt-0.5">No field — all tracks fly straight</p>
+      </div>
+
+      <div class="pt-2 border-t border-zinc-800">
+        <span class="text-[11px] text-zinc-500 block mb-2">Track Identification Guide</span>
+        <div class="space-y-1.5 text-[11px]">
+          <div class="flex items-center gap-2"><span class="inline-block w-8 h-1.5 rounded-full" style="background:#fde68a"></span><span class="text-zinc-300">Alpha</span><span class="text-zinc-500">— thick, straight, short</span></div>
+          <div class="flex items-center gap-2"><span class="inline-block w-8 h-0.5 rounded-full" style="background:#93c5fd"></span><span class="text-zinc-300">Beta</span><span class="text-zinc-500">— thin, erratic zig-zag</span></div>
+          <div class="flex items-center gap-2"><span class="inline-block w-8 h-0.5 rounded-full opacity-50" style="background:#a5f3fc"></span><span class="text-zinc-300">Gamma</span><span class="text-zinc-500">— faint scattered wisps</span></div>
+          <div class="flex items-center gap-2"><span class="inline-block w-8 h-1 rounded-full" style="background:#e2e8f0"></span><span class="text-zinc-300">Muon</span><span class="text-zinc-500">— long, dead straight</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">📓 Lab Notes</h2>
+      <ul class="text-[11.5px] text-zinc-400 space-y-2 leading-relaxed">
+        <li><span class="text-zinc-200 font-medium">How trails form:</span> a charged particle rips electrons off air molecules as it flies. Supersaturated alcohol vapor condenses on those ions instantly — a contrail of mist marking where something invisible just passed.</li>
+        <li><span class="text-zinc-200 font-medium">Lorentz force:</span> a magnetic field pushes moving charges sideways (F = qv×B). Positive and negative particles curl in opposite directions — this is literally how antimatter was discovered in 1932.</li>
+        <li><span class="text-zinc-200 font-medium">Mass matters:</span> an alpha particle is ~7,300× heavier than an electron, so the same field barely nudges it while electrons corkscrew. (Curvature here is gently exaggerated so you can see it.)</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<!-- ===== Help overlay ===== -->
+<div id="helpOverlay" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="How to use this simulation">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+    <div class="flex items-start justify-between mb-4">
+      <h2 class="text-base font-semibold flex items-center gap-2">🌫 How to Use This Lab</h2>
+      <button id="helpClose" class="p-2 rounded-md hover:bg-zinc-800 text-zinc-400" aria-label="Close help">✕</button>
+    </div>
+    <div class="space-y-4 text-sm text-zinc-300 leading-relaxed">
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">The window into the invisible</h3>
+        <p class="text-zinc-400">Right now, several cosmic ray particles are passing through your body every second. You can't feel them — but in 1911, C.T.R. Wilson built a chamber of supersaturated vapor where each one leaves a visible mist trail, like a jet contrail in miniature. It won him the Nobel Prize and gave physicists their first look at the subatomic world.</p>
+      </div>
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">1 · Learn to read the tracks</h3>
+        <p class="text-zinc-400">Each particle has a signature. <span class="text-amber-200">Alpha particles</span> (helium nuclei) are heavy bulldozers — thick, straight, short trails. <span class="text-blue-300">Beta particles</span> (electrons) are pinballs — thin, jittery zig-zags as they bounce off atoms. <span class="text-cyan-200">Gamma rays</span> are ghosts — uncharged, they leave no trail themselves, only faint wisps where they knock an electron loose.</p>
+      </div>
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">2 · Switch on the magnet</h3>
+        <p class="text-zinc-400">Slide the <span class="text-fuchsia-300">Magnetic Field</span> up and the chamber transforms: every moving charge feels the Lorentz force and its path bends into an arc. Positive charges curl one way, negative the other — flip the field direction and both reverse. Notice how lightweight electrons wind into tight spirals while heavy alphas barely lean.</p>
+      </div>
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">3 · Meet the cosmic rain</h3>
+        <p class="text-zinc-400">Leave the cosmic ray background on and watch long, arrow-straight trails streak down from the top — muons born when cosmic rays smash into the upper atmosphere, reaching your screen at nearly the speed of light. This is the actual, permanent radiation environment of planet Earth.</p>
+      </div>
+    </div>
+    <button id="helpStart" class="mt-5 w-full py-2.5 rounded-md bg-sky-600 hover:bg-sky-500 text-sm font-medium transition-colors">Start observing</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   THE WILSON CLOUD CHAMBER — plain JS engine
+   Ionization trails + Lorentz-force curvature in a mist canvas
+   ============================================================ */
+
+const W = 800, H = 520;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+// ---- Particle species ----
+// mEff = effective mass for on-screen curvature (alpha/electron ratio kept
+// qualitatively honest: alphas barely bend, electrons spiral)
+const SPECIES = {
+  alpha: { color: "#fde68a", width: 4.2, speed: 150, range: [70, 140],  jitter: 0.025, q: +2, mEff: 34,  label: "Alpha (Am-241)" },
+  beta:  { color: "#93c5fd", width: 1.3, speed: 330, range: [220, 520], jitter: 0.28,  q: -1, mEff: 1,   label: "Beta (Sr-90)" },
+  gamma: { color: "#a5f3fc", width: 1.0, speed: 300, range: [30, 90],   jitter: 0.30,  q: -1, mEff: 1,   label: "Gamma (Cs-137)" },
+  muon:  { color: "#e2e8f0", width: 1.8, speed: 480, range: [600, 900], jitter: 0.006, q: -1, mEff: 12,  label: "Cosmic muon" },
+};
+const SOURCES = ["alpha", "beta", "gamma", "mixed"];
+const SOURCE_LABELS = {
+  alpha: ["α", "Alpha particles", "thick · straight · short"],
+  beta:  ["β", "Beta particles", "thin · erratic zig-zag"],
+  gamma: ["γ", "Gamma rays", "faint · scattered wisps"],
+  mixed: ["☢", "Mixed sample", "all three at once"],
+};
+
+// ---- State ----
+const S = {
+  on: true,
+  source: "beta",
+  cosmic: true,
+  B: 0,            // tesla
+  bDir: 1,         // +1 = out of screen (⊙), −1 = into screen (⊗)
+  activity: 6,     // decays per second
+  supersat: 80,    // %
+  tracks: 0,
+};
+const SRC_POS = { x: 64, y: 285 }; // radioactive sample holder on the left wall
+
+const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ---- Canvases: main + persistent mist layer ----
+const canvas = document.getElementById("labCanvas");
+const ctx = canvas.getContext("2d");
+const mist = document.createElement("canvas");
+mist.width = W; mist.height = H;
+const mctx = mist.getContext("2d");
+
+let particles = [], recent = []; // recent = timestamps for rate readout
+let spawnAcc = 0, cosmicAcc = 0;
+
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${clamp(a,0,1)})`;
+}
+
+// ---- Spawning ----
+function spawn(type, x, y, angle) {
+  const sp = SPECIES[type];
+  particles.push({
+    type, x, y,
+    a: angle,
+    v: sp.speed * (0.8 + Math.random() * 0.4),
+    left: sp.range[0] + Math.random() * (sp.range[1] - sp.range[0]),
+    q: sp.q,
+  });
+  S.tracks++;
+  recent.push(performance.now());
+}
+
+function emitFromSource(type) {
+  if (type === "gamma") {
+    // gamma: invisible photon crosses the chamber, knocking loose 2–4
+    // electrons (Compton scattering) that leave faint short wisps
+    const ang = (Math.random() - 0.5) * 0.9;
+    const pathLen = 300 + Math.random() * 380;
+    const n = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const t = 0.15 + Math.random() * 0.8;
+      spawn("gamma",
+        SRC_POS.x + Math.cos(ang) * pathLen * t,
+        SRC_POS.y + Math.sin(ang) * pathLen * t,
+        Math.random() * Math.PI * 2);
+    }
+  } else {
+    spawn(type, SRC_POS.x + 10, SRC_POS.y, (Math.random() - 0.5) * 1.1);
+  }
+}
+
+// ---- Main loop ----
+let lastT = 0, lastUi = 0;
+function frame(now) {
+  const dt = Math.min((now - lastT) / 1000, 0.05) || 0.016;
+  lastT = now;
+
+  // spawn from source
+  if (S.on) {
+    spawnAcc += S.activity * dt;
+    while (spawnAcc >= 1) {
+      spawnAcc -= 1;
+      const t = S.source === "mixed"
+        ? ["alpha", "beta", "gamma"][Math.floor(Math.random() * 3)]
+        : S.source;
+      emitFromSource(t);
+    }
+    // cosmic muons rain from the top (~2.5/s)
+    if (S.cosmic) {
+      cosmicAcc += 2.5 * dt;
+      while (cosmicAcc >= 1) {
+        cosmicAcc -= 1;
+        spawn("muon", 60 + Math.random() * (W - 120), -10, Math.PI / 2 + (Math.random() - 0.5) * 0.7);
+      }
+    }
+  }
+
+  // fade the mist layer — persistence set by supersaturation
+  const fade = 0.085 - (S.supersat / 100) * 0.072; // 50%→fast fade, 100%→slow
+  mctx.globalCompositeOperation = "destination-out";
+  mctx.fillStyle = `rgba(0,0,0,${fade})`;
+  mctx.fillRect(0, 0, W, H);
+  mctx.globalCompositeOperation = "source-over";
+
+  // advance particles, painting trail segments into the mist
+  const bright = 0.35 + (S.supersat / 100) * 0.65;
+  particles.forEach(p => {
+    const sp = SPECIES[p.type];
+    const steps = 3;
+    for (let s = 0; s < steps && p.left > 0; s++) {
+      const sdt = dt / steps;
+      // Lorentz curvature: ω ∝ qB/m  (sign sets curl direction)
+      p.a += (p.q * S.B * S.bDir * 6.5 / sp.mEff) * sdt * 8;
+      // multiple scattering jitter
+      p.a += (Math.random() - 0.5) * sp.jitter;
+      const nx = p.x + Math.cos(p.a) * p.v * sdt;
+      const ny = p.y + Math.sin(p.a) * p.v * sdt;
+      mctx.strokeStyle = hexA(sp.color, (p.type === "gamma" ? 0.4 : 0.85) * bright);
+      mctx.lineWidth = sp.width;
+      mctx.lineCap = "round";
+      mctx.shadowColor = sp.color;
+      mctx.shadowBlur = p.type === "alpha" ? 7 : 4;
+      mctx.beginPath(); mctx.moveTo(p.x, p.y); mctx.lineTo(nx, ny); mctx.stroke();
+      mctx.shadowBlur = 0;
+      p.x = nx; p.y = ny;
+      p.left -= p.v * sdt;
+    }
+    if (p.left <= 0 || p.x < -20 || p.x > W + 20 || p.y < -30 || p.y > H + 20) p.dead = true;
+  });
+  particles = particles.filter(p => !p.dead);
+  recent = recent.filter(t => now - t < 3000);
+
+  drawScene(now);
+
+  if (now - lastUi > 120) { lastUi = now; updateReadouts(now); }
+  requestAnimationFrame(frame);
+}
+
+// ---- Scene drawing ----
+function drawScene(now) {
+  // chamber background: deep black viewing plate with cold glow at the base
+  ctx.clearRect(0, 0, W, H);
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#05070c"); bg.addColorStop(0.85, "#080b12"); bg.addColorStop(1, "#0b1220");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  // dry-ice cold glow along the floor
+  const cold = ctx.createLinearGradient(0, H - 60, 0, H);
+  cold.addColorStop(0, "rgba(56,189,248,0)");
+  cold.addColorStop(1, "rgba(56,189,248,0.10)");
+  ctx.fillStyle = cold; ctx.fillRect(0, H - 60, W, 60);
+
+  // field direction symbols (⊙ / ⊗ grid) when magnet is on
+  if (S.B > 0.05) {
+    ctx.fillStyle = `rgba(232,121,249,${0.06 + S.B * 0.09})`;
+    ctx.strokeStyle = `rgba(232,121,249,${0.10 + S.B * 0.12})`;
+    ctx.lineWidth = 1;
+    ctx.font = "11px ui-monospace, monospace"; ctx.textAlign = "center";
+    for (let x = 60; x < W; x += 90) {
+      for (let y = 70; y < H - 40; y += 90) {
+        ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.stroke();
+        if (S.bDir === 1) { ctx.beginPath(); ctx.arc(x, y, 1.6, 0, Math.PI * 2); ctx.fill(); }
+        else {
+          ctx.beginPath();
+          ctx.moveTo(x - 4, y - 4); ctx.lineTo(x + 4, y + 4);
+          ctx.moveTo(x + 4, y - 4); ctx.lineTo(x - 4, y + 4);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // ---- the mist layer (all the particle trails) ----
+  ctx.drawImage(mist, 0, 0);
+
+  // ambient vapor shimmer
+  if (S.on && !reducedMotion) {
+    ctx.fillStyle = "rgba(186,230,253,0.05)";
+    for (let i = 0; i < 14; i++) {
+      ctx.beginPath();
+      ctx.arc((i * 137 + now * 0.008) % W, (i * 211 + now * 0.004) % H, 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // source sample holder
+  const active = S.on;
+  ctx.fillStyle = "#27272a";
+  ctx.fillRect(SRC_POS.x - 30, SRC_POS.y - 22, 34, 44);
+  ctx.strokeStyle = "#3f3f46"; ctx.strokeRect(SRC_POS.x - 30, SRC_POS.y - 22, 34, 44);
+  ctx.fillStyle = active ? "#fbbf24" : "#52525b";
+  ctx.shadowColor = "#fbbf24"; ctx.shadowBlur = active ? 10 : 0;
+  ctx.beginPath(); ctx.arc(SRC_POS.x, SRC_POS.y, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "rgba(226,232,240,0.55)";
+  ctx.font = "10px ui-monospace, monospace"; ctx.textAlign = "center";
+  ctx.fillText("source", SRC_POS.x - 12, SRC_POS.y + 38);
+  ctx.fillText("☢", SRC_POS.x - 13, SRC_POS.y - 30);
+
+  // glass wall vignette
+  ctx.strokeStyle = "rgba(148,163,184,0.18)"; ctx.lineWidth = 3;
+  ctx.strokeRect(2, 2, W - 4, H - 4);
+  const vg = ctx.createRadialGradient(W/2, H/2, H/2.2, W/2, H/2, H);
+  vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,0.45)");
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+}
+
+// ---- Readouts ----
+const $ = id => document.getElementById(id);
+function updateReadouts(now) {
+  let label, tone;
+  if (!S.on)            { label = "Chamber Off";            tone = "zinc"; }
+  else if (S.B >= 1.4)  { label = "Strong Lorentz Bending"; tone = "fuchsia"; }
+  else if (S.B > 0.05)  { label = "Field On — Tracks Bending"; tone = "fuchsia"; }
+  else                  { label = "Chamber Active";         tone = "sky"; }
+
+  const tones = {
+    sky:     "bg-sky-500/15 text-sky-300 border-sky-500/40",
+    fuchsia: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/40",
+    zinc:    "bg-zinc-500/15 text-zinc-400 border-zinc-500/40",
+  };
+  const textTones = { sky: "text-sky-300", fuchsia: "text-fuchsia-300", zinc: "text-zinc-400" };
+
+  const banner = $("stateBanner");
+  banner.textContent = label;
+  banner.className = "absolute top-3 left-3 px-2.5 py-1 rounded-md border text-[11px] font-semibold tracking-widest uppercase " + tones[tone];
+  const roState = $("roState");
+  roState.textContent = label;
+  roState.className = "text-xs font-mono font-semibold " + textTones[tone];
+
+  $("roTracks").textContent = S.tracks;
+  $("roRate").textContent = (recent.length / 3).toFixed(1) + " /s";
+
+  const lz = $("roLorentz");
+  if (S.B > 0.05) {
+    lz.textContent = "ON · " + S.B.toFixed(1) + " T";
+    lz.className = "text-xs font-mono font-semibold text-fuchsia-300";
+    const pos = S.bDir === 1 ? "clockwise ↻" : "counter-clockwise ↺";
+    const neg = S.bDir === 1 ? "counter-clockwise ↺" : "clockwise ↻";
+    $("roCurl").textContent = `+ curls ${pos} · − curls ${neg}`;
+  } else {
+    lz.textContent = "OFF";
+    lz.className = "text-xs font-mono font-semibold text-zinc-400";
+    $("roCurl").textContent = "No field — all tracks fly straight";
+  }
+}
+
+// ---- Source selector ----
+function renderSources() {
+  const wrap = $("sourceGroup");
+  wrap.innerHTML = "";
+  SOURCES.forEach(key => {
+    const [sym, name, desc] = SOURCE_LABELS[key];
+    const active = S.source === key;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.setAttribute("role", "radio");
+    btn.setAttribute("aria-checked", active);
+    btn.className = "flex items-center gap-2.5 px-3 py-2.5 rounded-md border text-left text-xs transition-colors " +
+      (active ? "border-zinc-500 bg-zinc-800" : "border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/70");
+    const c = key === "mixed" ? "#fbbf24" : SPECIES[key].color;
+    btn.innerHTML =
+      `<span class="w-6 h-6 rounded-full border border-white/15 flex items-center justify-center font-mono text-sm" style="color:${c};${active ? `box-shadow:0 0 8px ${c};` : ""}">${sym}</span>
+       <span><span class="font-medium text-zinc-200 block">${name}</span>
+       <span class="text-zinc-500 text-[10.5px]">${desc}</span></span>`;
+    btn.addEventListener("click", () => { S.source = key; renderSources(); });
+    wrap.appendChild(btn);
+  });
+}
+renderSources();
+
+// ---- Controls wiring ----
+$("bfield").addEventListener("input", e => { S.B = Number(e.target.value); $("bVal").textContent = S.B.toFixed(1); });
+$("activity").addEventListener("input", e => { S.activity = Number(e.target.value); $("actVal").textContent = e.target.value; });
+$("supersat").addEventListener("input", e => { S.supersat = Number(e.target.value); $("satVal").textContent = e.target.value; });
+$("cosmicToggle").addEventListener("change", e => S.cosmic = e.target.checked);
+$("bDirBtn").addEventListener("click", () => {
+  S.bDir *= -1;
+  $("bDirLabel").textContent = S.bDir === 1 ? "⊙ out of screen" : "⊗ into screen";
+});
+$("powerBtn").addEventListener("click", () => {
+  S.on = !S.on;
+  $("powerLabel").textContent = S.on ? "Chamber ON" : "Chamber OFF";
+  $("powerBtn").className = "flex items-center gap-1.5 text-xs px-3 py-2 rounded-md border transition-colors " +
+    (S.on ? "border-sky-500/50 bg-sky-500/15 text-sky-300" : "border-zinc-700 bg-zinc-800/70 text-zinc-400");
+});
+
+// tap the chamber to fire a test particle from that point
+canvas.addEventListener("pointerdown", e => {
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width * W;
+  const y = (e.clientY - rect.top) / rect.height * H;
+  const t = S.source === "mixed" ? ["alpha", "beta", "gamma"][Math.floor(Math.random() * 3)] : S.source;
+  if (t === "gamma") {
+    for (let i = 0; i < 3; i++) spawn("gamma", x + (Math.random()-0.5)*40, y + (Math.random()-0.5)*40, Math.random() * Math.PI * 2);
+  } else {
+    spawn(t, x, y, Math.random() * Math.PI * 2);
+  }
+});
+
+// ---- Help overlay ----
+const overlay = $("helpOverlay");
+function showHelp(show) {
+  overlay.classList.toggle("hidden", !show);
+  overlay.classList.toggle("flex", show);
+}
+$("helpBtn").addEventListener("click", () => showHelp(true));
+$("helpClose").addEventListener("click", () => showHelp(false));
+$("helpStart").addEventListener("click", () => showHelp(false));
+overlay.addEventListener("click", e => { if (e.target === overlay) showHelp(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") showHelp(false); });
+
+// ---- Go ----
+requestAnimationFrame(t => { lastT = t; requestAnimationFrame(frame); });
+</script>
+</body>
+</html>
