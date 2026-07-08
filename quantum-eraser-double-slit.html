@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>The Quantum Eraser &amp; Double-Slit — Spark Lab</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html { -webkit-tap-highlight-color: transparent; }
+  #labCanvas { touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  input[type="range"] { height: 6px; cursor: pointer; }
+  input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; }
+  @media (prefers-reduced-motion: reduce) { .transition-all { transition: none !important; } }
+</style>
+</head>
+<body class="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
+
+<!-- ===== Header ===== -->
+<header class="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sticky top-0 z-40">
+  <div class="flex items-center gap-3 min-w-0">
+    <a href="index.html" class="shrink-0 text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-700 rounded-md px-2 py-1.5 transition-colors" title="Back to Spark Lab">←</a>
+    <div class="w-9 h-9 shrink-0 rounded-lg bg-sky-600/20 border border-sky-500/40 flex items-center justify-center text-lg">🌊</div>
+    <div class="min-w-0">
+      <h1 class="text-sm sm:text-base font-semibold tracking-wide truncate">The Quantum Eraser &amp; Double-Slit</h1>
+      <p class="text-[11px] text-zinc-400 hidden sm:block">The experiment that broke classical physics — and the observer who breaks it back</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-2 shrink-0">
+    <button id="helpBtn" class="flex items-center gap-1.5 text-xs px-3 py-2 rounded-md border border-zinc-700 bg-zinc-800/70 hover:bg-zinc-700/70 text-zinc-300 transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span class="hidden sm:inline">How to use</span><span class="sm:hidden">Help</span>
+    </button>
+    <button id="laserBtn" class="flex items-center gap-1.5 text-xs px-3 py-2 rounded-md border transition-colors border-sky-500/50 bg-sky-500/15 text-sky-300">
+      <span id="laserLabel">Laser ON</span>
+    </button>
+  </div>
+</header>
+
+<!-- ===== Main layout ===== -->
+<main class="p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-7xl mx-auto">
+
+  <!-- ---- Visualizer (first on mobile) ---- -->
+  <section class="lg:col-span-6 lg:order-2">
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden relative">
+      <canvas id="labCanvas" width="800" height="520" class="w-full h-auto block"
+        aria-label="Double-slit experiment. Photons pass through two slits and build a pattern on the screen; a which-way detector collapses the interference."></canvas>
+      <div id="stateBanner" class="absolute top-3 left-3 px-2.5 py-1 rounded-md border text-[11px] font-semibold tracking-widest uppercase bg-sky-500/15 text-sky-300 border-sky-500/40">Wave Mode — Superposition</div>
+      <div class="absolute top-3 right-3 px-2.5 py-1 rounded-md border border-zinc-700 bg-zinc-900/80 text-[11px] text-zinc-300">Young 1801 · Feynman: "the only mystery"</div>
+    </div>
+    <p class="text-[11px] text-zinc-500 mt-2">🔬 Slow the rate to 1/s and watch single photons build a wave pattern, dot by impossible dot.</p>
+  </section>
+
+  <!-- ---- Control panel ---- -->
+  <section class="lg:col-span-3 lg:order-1 space-y-3">
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">👁 The Observer</h2>
+
+      <button id="detBtn" class="w-full flex items-center justify-between px-3 py-3 rounded-md border transition-colors border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/70 mb-2">
+        <span class="text-left">
+          <span class="text-xs font-medium text-zinc-200 block">"Which-Way" Detector</span>
+          <span class="text-[10.5px] text-zinc-500">Measure which slit each photon uses</span>
+        </span>
+        <span id="detState" class="text-[10px] font-mono px-2 py-1 rounded border border-zinc-700 text-zinc-400">OFF</span>
+      </button>
+
+      <button id="eraseBtn" disabled class="w-full flex items-center justify-between px-3 py-3 rounded-md border transition-colors border-zinc-800 bg-zinc-900/40 opacity-50">
+        <span class="text-left">
+          <span class="text-xs font-medium text-zinc-200 block">Quantum Eraser</span>
+          <span class="text-[10.5px] text-zinc-500">Scramble the which-way record</span>
+        </span>
+        <span id="eraseState" class="text-[10px] font-mono px-2 py-1 rounded border border-zinc-700 text-zinc-400">OFF</span>
+      </button>
+      <p class="text-[10.5px] text-zinc-500 mt-2 leading-relaxed">Toggling the observer wipes the screen so you can watch the new pattern build from zero.</p>
+    </div>
+
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">⚙ Control Dashboard</h2>
+
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <label for="rate" class="text-xs text-zinc-300">🔫 Firing Rate</label>
+          <span class="text-xs font-mono text-zinc-100 bg-zinc-800 px-1.5 py-0.5 rounded"><span id="rateVal">3</span> /s</span>
+        </div>
+        <input id="rate" type="range" min="1" max="300" step="1" value="3" class="w-full accent-sky-500" />
+        <p id="rateHint" class="text-[10.5px] text-zinc-500 mt-1">One photon at a time — pure quantum mode</p>
+      </div>
+
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <label for="wave" class="text-xs text-zinc-300">🌈 Wavelength</label>
+          <span class="text-xs font-mono text-zinc-100 bg-zinc-800 px-1.5 py-0.5 rounded"><span id="waveVal">532</span> nm</span>
+        </div>
+        <input id="wave" type="range" min="400" max="700" step="2" value="532" class="w-full accent-emerald-500" />
+      </div>
+
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <label for="sep" class="text-xs text-zinc-300">↕ Slit Separation</label>
+          <span class="text-xs font-mono text-zinc-100 bg-zinc-800 px-1.5 py-0.5 rounded"><span id="sepVal">25</span> µm</span>
+        </div>
+        <input id="sep" type="range" min="15" max="40" step="1" value="25" class="w-full accent-violet-500" />
+        <p class="text-[10.5px] text-zinc-500 mt-1">Closer slits = wider fringes</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <button id="oneBtn" class="py-2 rounded-md bg-sky-600 hover:bg-sky-500 text-xs font-medium transition-colors">🔦 Fire 1 Photon</button>
+        <button id="clearBtn" class="py-2 rounded-md border border-zinc-700 bg-zinc-800/70 hover:bg-zinc-700/70 text-xs text-zinc-300 transition-colors">🧹 Clear Screen</button>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">🧪 Experiment Ideas</h2>
+      <ul class="text-[11.5px] text-zinc-400 space-y-2 leading-relaxed">
+        <li>• Fire photons one at a time. Each lands as a single dot — yet stripes emerge. What was interfering with what?</li>
+        <li>• Flip the detector ON mid-stream. Stripes gone. Turn it OFF. Stripes return.</li>
+        <li>• Detector ON, then Eraser ON: the record is scrambled — do the stripes come back?</li>
+        <li>• Slide the wavelength: red light, wide stripes; violet, narrow. Measure light with a ruler!</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ---- Metrics + lab notes ---- -->
+  <section class="lg:col-span-3 lg:order-3 space-y-3">
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">📡 Live Readouts</h2>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Quantum State</span>
+          <span id="roState" class="text-xs font-mono font-semibold text-sky-300">Superposition</span>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Photons Detected</span>
+          <span id="roCount" class="text-xs font-mono font-semibold text-zinc-100">0</span>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Last Photon's Path</span>
+          <span id="roPath" class="text-xs font-mono font-semibold text-zinc-400">∅ unknowable</span>
+        </div>
+        <p class="text-[10px] text-zinc-600 mt-0.5">With no detector, "which slit?" has no answer</p>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Pattern Visibility</span>
+          <span id="roVis" class="text-xs font-mono font-semibold text-emerald-300">100 %</span>
+        </div>
+        <div class="mt-1 h-1 rounded-full bg-zinc-800 overflow-hidden">
+          <div id="barVis" class="h-full rounded-full transition-all duration-150" style="width:100%; background:#38bdf8; box-shadow:0 0 6px #38bdf8;"></div>
+        </div>
+        <p class="text-[10px] text-zinc-600 mt-0.5">How striped the pattern can be: interference contrast</p>
+      </div>
+
+      <div class="mb-1">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] text-zinc-500">Fringe Spacing</span>
+          <span id="roFringe" class="text-xs font-mono font-semibold text-zinc-100">—</span>
+        </div>
+        <p class="text-[10px] text-zinc-600 mt-0.5">∝ wavelength ÷ slit separation</p>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3.5">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">📓 Lab Notes</h2>
+      <ul class="text-[11.5px] text-zinc-400 space-y-2 leading-relaxed">
+        <li><span class="text-zinc-200 font-medium">Each photon interferes with itself:</span> even fired one at a time, with the chamber empty, single photons land in stripes. The wave that interferes is a wave of <em>probability</em> — passing through both slits at once.</li>
+        <li><span class="text-zinc-200 font-medium">The observer effect:</span> it's not that looking "disturbs" the photon with a clumsy nudge. Gaining which-way information — anywhere, by any means — is itself what destroys the interference. Information is physical.</li>
+        <li><span class="text-zinc-200 font-medium">The eraser:</span> scramble that information after the slits and the stripes return. The universe only insists: you may have the path <em>or</em> the pattern — never both.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<!-- ===== Help overlay ===== -->
+<div id="helpOverlay" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="How to use this simulation">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl max-w-lg w-full p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+    <div class="flex items-start justify-between mb-4">
+      <h2 class="text-base font-semibold flex items-center gap-2">🌊 How to Use This Lab</h2>
+      <button id="helpClose" class="p-2 rounded-md hover:bg-zinc-800 text-zinc-400" aria-label="Close help">✕</button>
+    </div>
+    <div class="space-y-4 text-sm text-zinc-300 leading-relaxed">
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">Feynman called it "the only mystery"</h3>
+        <p class="text-zinc-400">Fire light at a wall with two narrow slits, and stripes appear on the screen behind — waves from each slit adding and canceling. Fine, light is a wave. But this lab fires <em>one photon at a time</em>, and the stripes still form, dot by dot. Each photon somehow goes through both slits and interferes with itself.</p>
+      </div>
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">1 · Build the impossible pattern</h3>
+        <p class="text-zinc-400">Set the <span class="text-sky-300">Firing Rate</span> to 1/s and watch. Each photon arrives as a single point — particle behavior — yet after a few hundred, unmistakable stripes emerge — wave behavior. The histogram beside the screen tallies the counts against the theoretical curve.</p>
+      </div>
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">2 · Look — and destroy it</h3>
+        <p class="text-zinc-400">Flip the <span class="text-red-300">"Which-Way" Detector</span> ON. Now each photon's slit is recorded (see the readout: TOP or BOTTOM). Instantly, the stripes stop forming — new photons pile into two plain bands, exactly as everyday particles would. Nothing physical touched the photons differently. The universe simply behaves differently when the answer to "which slit?" <em>exists</em>.</p>
+      </div>
+      <div>
+        <h3 class="text-zinc-100 font-medium mb-1">3 · Un-look with the eraser</h3>
+        <p class="text-zinc-400">With the detector still on, enable the <span class="text-violet-300">Quantum Eraser</span> — a device that scrambles the which-way record after the slits, so the information can never be recovered. The stripes return. Path or pattern: the choice is yours, but never both. That trade-off — not lasers, not slits — is the deep law this experiment exposes.</p>
+      </div>
+    </div>
+    <button id="helpStart" class="mt-5 w-full py-2.5 rounded-md bg-sky-600 hover:bg-sky-500 text-sm font-medium transition-colors">Fire the first photon</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   THE QUANTUM ERASER & DOUBLE-SLIT — plain JS engine
+   Photon landings sampled from real interference statistics
+   ============================================================ */
+
+const W = 800, H = 520;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+// ---- Optical bench geometry (px) ----
+const EMIT = { x: 74, y: 260 };
+const BARRIER_X = 300, SCREEN_X = 620;
+const SCREEN_TOP = 60, SCREEN_BOT = 460;
+const CY = 260;                      // optical axis
+const ERASER_X = 356;
+
+// ---- State ----
+const S = {
+  laser: true,
+  rate: 3,            // photons per second
+  lambda: 532,        // nm
+  sepUm: 25,          // "µm" (drives slit pixel separation)
+  detector: false,
+  eraser: false,
+  fired: 0,
+  lastPath: null,     // "TOP" | "BOTTOM" | null
+};
+
+const slitSepPx = () => S.sepUm * 2;                  // 30–80 px between slits
+const slitYs = () => [CY - slitSepPx() / 2, CY + slitSepPx() / 2];
+const fringePx = () => 3.1 * S.lambda / slitSepPx();  // Δy on screen
+
+// visibility (interference contrast): 1 wave, 0 collapsed, 0.85 erased
+const visibility = () => !S.detector ? 1 : (S.eraser ? 0.85 : 0);
+
+// ---- Wavelength → RGB (approximate visible spectrum) ----
+function waveColor(nm) {
+  let r=0,g=0,b=0;
+  if (nm<440){r=-(nm-440)/60;b=1;}
+  else if(nm<490){g=(nm-440)/50;b=1;}
+  else if(nm<510){g=1;b=-(nm-510)/20;}
+  else if(nm<580){r=(nm-510)/70;g=1;}
+  else if(nm<645){r=1;g=-(nm-645)/65;}
+  else {r=1;}
+  const f = nm>700?0.3:(nm<420?0.3+0.7*(nm-400)/20:1);
+  const c = v=>Math.round(clamp(v*f,0,1)*255);
+  return [c(r),c(g),c(b)];
+}
+const rgba = (c,a)=>`rgba(${c[0]},${c[1]},${c[2]},${clamp(a,0,1)})`;
+
+// ---- Landing-point statistics ----
+function intensity(y) { // y relative to optical axis
+  const env = Math.exp(-(y*y)/(2*110*110));            // single-slit envelope
+  const vis = visibility();
+  if (vis === 0) {
+    // path known → two incoherent single-slit blobs
+    const c = slitSepPx()*0.8, s = 52;
+    return Math.exp(-((y-c)**2)/(2*s*s)) + Math.exp(-((y+c)**2)/(2*s*s));
+  }
+  const fringe = Math.cos(Math.PI * y / fringePx()) ** 2;
+  return (vis * fringe + (1 - vis) * 0.5) * env;
+}
+function sampleY() { // rejection sampling from intensity(y)
+  const half = (SCREEN_BOT - SCREEN_TOP) / 2 - 6;
+  for (let i = 0; i < 60; i++) {
+    const y = (Math.random()*2-1) * half;
+    if (Math.random() < intensity(y) / 2) return CY + y;
+  }
+  return CY;
+}
+
+// ---- Photons, hits, histogram ----
+let photons = [], hits = [], flashes = [];
+const NBINS = 72;
+let bins = new Array(NBINS).fill(0), maxBin = 1;
+let spawnAcc = 0;
+
+function clearScreen() {
+  hits = []; bins = new Array(NBINS).fill(0); maxBin = 1;
+}
+function firePhoton(animate) {
+  S.fired++;
+  const targetY = sampleY();
+  const slit = S.detector ? (Math.random() < 0.5 ? 0 : 1) : null;
+  if (S.detector) S.lastPath = slit === 0 ? "TOP" : "BOTTOM";
+  else S.lastPath = null;
+  if (animate) {
+    photons.push({ x: EMIT.x, y: EMIT.y, targetY, slit, phase: 0, r: 0 });
+  } else {
+    registerHit(targetY, slit);
+  }
+}
+function registerHit(y, slit) {
+  hits.push({ y, t: performance.now() });
+  if (hits.length > 4000) hits.shift();
+  const bi = clamp(Math.floor((y - SCREEN_TOP) / (SCREEN_BOT - SCREEN_TOP) * NBINS), 0, NBINS-1);
+  bins[bi]++; maxBin = Math.max(maxBin, bins[bi]);
+  if (slit !== null) flashes.push({ slit, t: performance.now() });
+}
+
+// ---- Canvas + loop ----
+const canvas = document.getElementById("labCanvas");
+const ctx = canvas.getContext("2d");
+const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+let lastT = 0, lastUi = 0;
+function frame(now) {
+  const dt = Math.min((now - lastT) / 1000, 0.05) || 0.016;
+  lastT = now;
+
+  if (S.laser) {
+    spawnAcc += S.rate * dt;
+    const animate = S.rate <= 40; // above this, skip flight animation
+    while (spawnAcc >= 1) { spawnAcc -= 1; firePhoton(animate); }
+  }
+
+  // advance in-flight photons
+  const speed = 560; // px/s
+  photons.forEach(p => {
+    if (p.phase === 0) {                       // emitter → barrier
+      p.x += speed * dt;
+      if (p.x >= BARRIER_X) {
+        p.phase = 1; p.x = BARRIER_X; p.r = 0;
+        if (p.slit !== null) { p.y = slitYs()[p.slit]; flashes.push({ slit: p.slit, t: now }); }
+      }
+    } else if (p.slit === null) {              // wave: expanding fronts from both slits
+      p.r += speed * dt;
+      if (p.r >= SCREEN_X - BARRIER_X) { registerHit(p.targetY, null); p.dead = true; }
+    } else {                                   // particle: straight line through its slit
+      const t0 = (p.x - BARRIER_X) / (SCREEN_X - BARRIER_X);
+      p.x += speed * dt;
+      const t1 = clamp((p.x - BARRIER_X) / (SCREEN_X - BARRIER_X), 0, 1);
+      p.y = slitYs()[p.slit] + (p.targetY - slitYs()[p.slit]) * t1;
+      if (p.x >= SCREEN_X) { registerHit(p.targetY, null); p.dead = true; }
+    }
+  });
+  photons = photons.filter(p => !p.dead);
+  flashes = flashes.filter(f => now - f.t < 300);
+
+  draw(now);
+  if (now - lastUi > 100) { lastUi = now; updateReadouts(); }
+  requestAnimationFrame(frame);
+}
+
+// ---- Drawing ----
+function draw(now) {
+  const col = waveColor(S.lambda);
+  ctx.clearRect(0, 0, W, H);
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#09090f"); bg.addColorStop(1, "#101018");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "rgba(120,130,180,0.05)"; ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y <= H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  const [topY, botY] = slitYs();
+
+  // ---- laser emitter ----
+  ctx.fillStyle = "#27272a";
+  ctx.fillRect(EMIT.x - 44, EMIT.y - 18, 52, 36);
+  ctx.strokeStyle = "#3f3f46"; ctx.strokeRect(EMIT.x - 44, EMIT.y - 18, 52, 36);
+  ctx.fillStyle = S.laser ? rgba(col, 1) : "#52525b";
+  ctx.shadowColor = rgba(col, 1); ctx.shadowBlur = S.laser ? 10 : 0;
+  ctx.beginPath(); ctx.arc(EMIT.x + 8, EMIT.y, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "rgba(226,232,240,0.55)";
+  ctx.font = "10px ui-monospace, monospace"; ctx.textAlign = "center";
+  ctx.fillText("photon gun", EMIT.x - 16, EMIT.y + 34);
+
+  // continuous beam at high rates
+  if (S.laser && S.rate > 40) {
+    ctx.strokeStyle = rgba(col, 0.5);
+    ctx.shadowColor = rgba(col, 1); ctx.shadowBlur = 8;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(EMIT.x + 12, EMIT.y); ctx.lineTo(BARRIER_X - 4, EMIT.y); ctx.stroke();
+    ctx.shadowBlur = 0;
+    // spray cone(s) after the slits
+    ctx.fillStyle = rgba(col, 0.05);
+    [topY, botY].forEach(sy => {
+      ctx.beginPath();
+      ctx.moveTo(BARRIER_X + 4, sy);
+      ctx.lineTo(SCREEN_X, SCREEN_TOP); ctx.lineTo(SCREEN_X, SCREEN_BOT);
+      ctx.closePath(); ctx.fill();
+    });
+  }
+
+  // ---- barrier with two slits ----
+  ctx.fillStyle = "#3f3f46";
+  const SW = 10, slitH = 14;
+  ctx.fillRect(BARRIER_X - SW/2, 50, SW, topY - slitH/2 - 50);
+  ctx.fillRect(BARRIER_X - SW/2, topY + slitH/2, SW, botY - topY - slitH);
+  ctx.fillRect(BARRIER_X - SW/2, botY + slitH/2, SW, 470 - botY - slitH/2);
+  ctx.strokeStyle = "#52525b";
+  ctx.strokeRect(BARRIER_X - SW/2, 50, SW, 420);
+
+  // which-way detectors at the slits
+  [topY, botY].forEach((sy, i) => {
+    ctx.fillStyle = "#27272a";
+    ctx.fillRect(BARRIER_X + 8, sy - 8, 20, 16);
+    ctx.strokeStyle = S.detector ? "#ef4444" : "#3f3f46";
+    ctx.strokeRect(BARRIER_X + 8, sy - 8, 20, 16);
+    ctx.fillStyle = S.detector ? "#ef4444" : "#52525b";
+    ctx.shadowColor = "#ef4444"; ctx.shadowBlur = S.detector ? 8 : 0;
+    ctx.beginPath(); ctx.arc(BARRIER_X + 18, sy, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    // detection flash
+    flashes.forEach(f => {
+      if (f.slit !== i) return;
+      const a = 1 - (now - f.t) / 300;
+      ctx.strokeStyle = `rgba(239,68,68,${a})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(BARRIER_X + 18, sy, 8 + (1 - a) * 12, 0, Math.PI * 2); ctx.stroke();
+    });
+  });
+  ctx.fillStyle = S.detector ? "rgba(248,113,113,0.8)" : "rgba(226,232,240,0.4)";
+  ctx.fillText(S.detector ? "👁 detectors ON" : "detectors off", BARRIER_X, 40);
+
+  // quantum eraser panel
+  if (S.detector && S.eraser) {
+    ctx.strokeStyle = "rgba(167,139,250,0.7)";
+    ctx.setLineDash([6, 5]); ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(ERASER_X, 70); ctx.lineTo(ERASER_X, 450); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(196,181,253,0.8)";
+    ctx.fillText("🌀 eraser — record scrambled", ERASER_X, 62);
+  }
+
+  // ---- in-flight photons ----
+  photons.forEach(p => {
+    if (p.phase === 0 || p.slit !== null) {
+      ctx.shadowColor = rgba(col, 1); ctx.shadowBlur = 10;
+      ctx.fillStyle = rgba(col, 0.95);
+      ctx.beginPath(); ctx.arc(p.x, p.y, 3.4, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      // superposition: expanding wavefronts from BOTH slits
+      const alpha = clamp(1 - p.r / (SCREEN_X - BARRIER_X), 0.15, 0.8);
+      ctx.strokeStyle = rgba(col, alpha * 0.7);
+      ctx.lineWidth = 1.6;
+      [topY, botY].forEach(sy => {
+        for (let k = 0; k < 3; k++) {
+          const r = p.r - k * fringePx();
+          if (r <= 2) continue;
+          ctx.beginPath();
+          ctx.arc(BARRIER_X, sy, r, -Math.PI / 2.4, Math.PI / 2.4);
+          ctx.stroke();
+        }
+      });
+    }
+  });
+
+  // ---- detection screen + accumulated hits ----
+  ctx.fillStyle = "#18181f";
+  ctx.fillRect(SCREEN_X, SCREEN_TOP, 14, SCREEN_BOT - SCREEN_TOP);
+  ctx.strokeStyle = "#3f3f46";
+  ctx.strokeRect(SCREEN_X, SCREEN_TOP, 14, SCREEN_BOT - SCREEN_TOP);
+  hits.forEach(h => {
+    const fresh = clamp(1 - (now - h.t) / 1200, 0, 1);
+    ctx.fillStyle = rgba(col, 0.55 + fresh * 0.45);
+    if (fresh > 0.5) { ctx.shadowColor = rgba(col, 1); ctx.shadowBlur = 6; }
+    ctx.beginPath(); ctx.arc(SCREEN_X + 7, h.y, 1.4 + fresh * 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+  ctx.fillStyle = "rgba(226,232,240,0.4)";
+  ctx.fillText("screen", SCREEN_X + 7, SCREEN_TOP - 8);
+
+  // ---- histogram + theoretical curve ----
+  const HX = SCREEN_X + 26, HW = 130;
+  const bh = (SCREEN_BOT - SCREEN_TOP) / NBINS;
+  ctx.fillStyle = rgba(col, 0.55);
+  bins.forEach((c, i) => {
+    if (!c) return;
+    ctx.fillRect(HX, SCREEN_TOP + i * bh + 0.5, (c / maxBin) * HW, bh - 1);
+  });
+  if (hits.length > 150) {
+    // theoretical prediction overlay
+    let iMax = 0;
+    for (let y = -200; y <= 200; y += 2) iMax = Math.max(iMax, intensity(y));
+    ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let i = 0; i <= 200; i++) {
+      const y = SCREEN_TOP + (i / 200) * (SCREEN_BOT - SCREEN_TOP);
+      const x = HX + (intensity(y - CY) / iMax) * HW;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.fillStyle = "rgba(226,232,240,0.4)";
+  ctx.fillText("photon count →", HX + 54, SCREEN_TOP - 8);
+}
+
+// ---- Readouts ----
+const $ = id => document.getElementById(id);
+function updateReadouts() {
+  let label, tone, state;
+  if (!S.detector)      { label = "Wave Mode — Superposition"; state = "Superposition"; tone = "sky"; }
+  else if (S.eraser)    { label = "Which-Way Info Erased";     state = "Info Erased";   tone = "violet"; }
+  else                  { label = "Collapsed — Path Known";    state = "Collapsed";     tone = "red"; }
+
+  const tones = {
+    sky: "bg-sky-500/15 text-sky-300 border-sky-500/40",
+    red: "bg-red-500/15 text-red-300 border-red-500/40",
+    violet: "bg-violet-500/15 text-violet-300 border-violet-500/40",
+  };
+  const textTones = { sky: "text-sky-300", red: "text-red-300", violet: "text-violet-300" };
+
+  const banner = $("stateBanner");
+  banner.textContent = label;
+  banner.className = "absolute top-3 left-3 px-2.5 py-1 rounded-md border text-[11px] font-semibold tracking-widest uppercase " + tones[tone];
+  const roState = $("roState");
+  roState.textContent = state;
+  roState.className = "text-xs font-mono font-semibold " + textTones[tone];
+
+  $("roCount").textContent = hits.length + (S.fired > hits.length ? " (" + S.fired + " fired)" : "");
+  const path = $("roPath");
+  if (S.detector && !S.eraser && S.lastPath) {
+    path.textContent = S.lastPath + " slit";
+    path.className = "text-xs font-mono font-semibold text-red-300";
+  } else if (S.detector && S.eraser) {
+    path.textContent = "recorded, then erased";
+    path.className = "text-xs font-mono font-semibold text-violet-300";
+  } else {
+    path.textContent = "∅ unknowable";
+    path.className = "text-xs font-mono font-semibold text-zinc-400";
+  }
+  const vis = visibility();
+  $("roVis").textContent = Math.round(vis * 100) + " %";
+  $("barVis").style.width = vis * 100 + "%";
+  $("roFringe").textContent = vis > 0 ? (fringePx() * 0.06).toFixed(2) + " mm" : "no fringes";
+}
+
+// ---- Controls wiring ----
+$("rate").addEventListener("input", e => {
+  S.rate = Number(e.target.value);
+  $("rateVal").textContent = S.rate;
+  $("rateHint").textContent = S.rate <= 5 ? "One photon at a time — pure quantum mode"
+    : S.rate <= 40 ? "Photon stream — individual flights visible"
+    : "Continuous laser beam";
+});
+$("wave").addEventListener("input", e => { S.lambda = Number(e.target.value); $("waveVal").textContent = e.target.value; });
+$("sep").addEventListener("input", e => { S.sepUm = Number(e.target.value); $("sepVal").textContent = e.target.value; });
+$("oneBtn").addEventListener("click", () => firePhoton(true));
+$("clearBtn").addEventListener("click", clearScreen);
+
+function styleToggle(btn, stateEl, on, color) {
+  btn.className = "w-full flex items-center justify-between px-3 py-3 rounded-md border transition-colors mb-2 " +
+    (on ? `border-${color}-500/60 bg-${color}-500/15` : "border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/70");
+  stateEl.textContent = on ? "ON" : "OFF";
+  stateEl.className = "text-[10px] font-mono px-2 py-1 rounded border " +
+    (on ? `border-${color}-500/60 text-${color}-300` : "border-zinc-700 text-zinc-400");
+}
+$("detBtn").addEventListener("click", () => {
+  S.detector = !S.detector;
+  if (!S.detector) S.eraser = false;
+  clearScreen(); photons = [];
+  styleToggle($("detBtn"), $("detState"), S.detector, "red");
+  styleToggle($("eraseBtn"), $("eraseState"), S.eraser, "violet");
+  $("eraseBtn").disabled = !S.detector;
+  $("eraseBtn").classList.toggle("opacity-50", !S.detector);
+  $("eraseBtn").classList.remove("mb-2");
+});
+$("eraseBtn").addEventListener("click", () => {
+  if (!S.detector) return;
+  S.eraser = !S.eraser;
+  clearScreen(); photons = [];
+  styleToggle($("eraseBtn"), $("eraseState"), S.eraser, "violet");
+  $("eraseBtn").classList.remove("mb-2");
+});
+$("laserBtn").addEventListener("click", () => {
+  S.laser = !S.laser;
+  $("laserLabel").textContent = S.laser ? "Laser ON" : "Laser OFF";
+  $("laserBtn").className = "flex items-center gap-1.5 text-xs px-3 py-2 rounded-md border transition-colors " +
+    (S.laser ? "border-sky-500/50 bg-sky-500/15 text-sky-300" : "border-zinc-700 bg-zinc-800/70 text-zinc-400");
+});
+
+// ---- Help overlay ----
+const overlay = $("helpOverlay");
+function showHelp(show) {
+  overlay.classList.toggle("hidden", !show);
+  overlay.classList.toggle("flex", show);
+}
+$("helpBtn").addEventListener("click", () => showHelp(true));
+$("helpClose").addEventListener("click", () => showHelp(false));
+$("helpStart").addEventListener("click", () => showHelp(false));
+overlay.addEventListener("click", e => { if (e.target === overlay) showHelp(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") showHelp(false); });
+
+// ---- Go ----
+requestAnimationFrame(t => { lastT = t; requestAnimationFrame(frame); });
+</script>
+</body>
+</html>
